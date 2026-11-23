@@ -1,4 +1,11 @@
-"""Binary filter and reachability gate (POSSIBLE vs NOISE only)."""
+"""Binary filter and reachability gate.
+
+Reachability inspects ``candidate.contacts`` for a non-empty outreach path under
+keys ``email``, ``linkedin``, or ``dm`` (whitespace-only values do not count).
+
+Criteria ``cost`` is used only to order predicate evaluation (cheapest first);
+it is not a weight or score.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +15,6 @@ from inspect import signature
 
 from winnow.models import Candidate, Criteria
 
-# Reachable if any of these contact paths is non-empty (after strip).
 REACHABILITY_KEYS: tuple[str, ...] = ("email", "linkedin", "dm")
 
 
@@ -36,7 +42,7 @@ def evaluate(
 ) -> bool:
     """True only if every predicate is True. Short-circuits on first False.
 
-    Predicates run cheapest-first (Criteria.cost). Cost is ordering only.
+    Predicates run cheapest-first (``Criteria.cost``). Cost is ordering only.
     """
     for criterion in _order_criteria(criteria):
         if not _invoke_predicate(criterion.predicate, candidate, now=now):
