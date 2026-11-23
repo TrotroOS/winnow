@@ -142,6 +142,22 @@ class WinnowStore:
         self._conn.commit()
         self._ensure_candidate_columns()
         self._ensure_run_columns()
+        self._ensure_criteria_version_columns()
+
+    def _ensure_criteria_version_columns(self) -> None:
+        cur = self._conn.execute("PRAGMA table_info(criteria_versions)")
+        cols = {str(row[1]) for row in cur.fetchall()}
+        additions = {
+            "generated": "INTEGER NOT NULL DEFAULT 0",
+            "approved": "INTEGER NOT NULL DEFAULT 1",
+            "proposal_json": "TEXT NOT NULL DEFAULT ''",
+        }
+        for name, typedef in additions.items():
+            if name not in cols:
+                self._conn.execute(
+                    f"ALTER TABLE criteria_versions ADD COLUMN {name} {typedef}"
+                )
+        self._conn.commit()
 
     def _ensure_run_columns(self) -> None:
         cur = self._conn.execute("PRAGMA table_info(runs)")
@@ -387,19 +403,74 @@ class WinnowStore:
         return {str(row["id"]) for row in cur.fetchall()}
 
     def record_criteria_version(
-        self, template_name: str, criteria_names: tuple[str, ...]
+        self,
+        template_name: str,
+        criteria_names: tuple[str, ...],
+        *,
+        generated: bool = False,
+        approved: bool | None = None,
+        proposal_json: str = "",
     ) -> int:
         now = datetime.now(timezone.utc).isoformat()
+        if approved is None:
+            approved = not generated
         cur = self._conn.cursor()
         cur.execute(
             """
-            INSERT INTO criteria_versions (template_name, criteria_names, created_at)
-            VALUES (?, ?, ?)
+            INSERT INTO criteria_versions (
+                template_name, criteria_names, created_at,
+                generated, approved, proposal_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (template_name, json.dumps(list(criteria_names)), now),
+            (
+                template_name,
+                json.dumps(list(criteria_names)),
+                now,
+                int(generated),
+                int(approved),
+                proposal_json,
+            ),
         )
         self._conn.commit()
         return int(cur.lastrowid)
+
+    def get_criteria_version(self, version_id: int) -> dict[str, Any] | None:
+        cur = self._conn.execute(
+            """
+            SELECT id, template_name, criteria_names, created_at,
+                   generated, approved, proposal_json
+            FROM criteria_versions WHERE id = ?
+            """,
+            (version_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "template_name": str(row["template_name"]),
+            "criteria_names": json.loads(str(row["criteria_names"])),
+            "created_at": str(row["created_at"]),
+            "generated": bool(int(row["generated"])),
+            "approved": bool(int(row["approved"])),
+            "proposal_json": str(row["proposal_json"] or ""),
+        }
+
+    def approve_criteria_version(self, version_id: int) -> bool:
+        cur = self._conn.execute(
+            "SELECT generated FROM criteria_versions WHERE id = ?",
+            (version_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return False
+        self._conn.execute(
+            "UPDATE criteria_versions SET approved = 1 WHERE id = ?",
+            (version_id,),
+        )
+        self._conn.commit()
+        return True
 
     def record_run(
         self,

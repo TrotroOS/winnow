@@ -13,6 +13,7 @@ from winnow.budget import SpendTracker
 from winnow.store import WinnowStore, db_path
 from winnow.feedback import TemplateStats, emit_suggestions, suggest
 from winnow.criteria.builder import build_criteria, parse_situation
+from winnow.criteria.generative import allow_generative, store_generative_proposal
 from winnow.models import Candidate, RunResult
 from winnow.orchestrator import RunConfig, run
 from winnow.sources.volume import parse_adapter_volume_config
@@ -388,6 +389,52 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_approve_criteria(args: argparse.Namespace) -> int:
+    store = WinnowStore(db_path() if args.db is None else args.db)
+    try:
+        version = store.get_criteria_version(args.id)
+        if version is None:
+            print(f"unknown criteria_version id={args.id}", file=sys.stderr)
+            return 1
+        if not version["generated"]:
+            print(
+                f"criteria_version {args.id} is template-backed (not generated); "
+                "nothing to approve",
+                file=sys.stderr,
+            )
+            return 1
+        store.approve_criteria_version(args.id)
+        print(f"approved criteria_version id={args.id}")
+        return 0
+    finally:
+        store.close()
+
+
+def cmd_propose_criteria(args: argparse.Namespace) -> int:
+    if not allow_generative():
+        print(
+            "generative criteria disabled; set WINNOW_ALLOW_GENERATIVE=1",
+            file=sys.stderr,
+        )
+        return 1
+    raw = _load_yaml(args.config)
+    situation = parse_situation(_situation_from_config(raw))
+    store = WinnowStore(db_path() if args.db is None else args.db)
+    try:
+        template = str(
+            raw.get("situation_type")
+            or _situation_from_config(raw).get("situation_type")
+            or "generated"
+        )
+        version_id = store_generative_proposal(
+            store, situation, template_name=template
+        )
+        print(f"stored generative criteria_version id={version_id} (awaiting approval)")
+        return 0
+    finally:
+        store.close()
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     if not args.config.is_file():
         print(f"config not found: {args.config}", file=sys.stderr)
@@ -399,7 +446,13 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv or sys.argv[1:])
-    if argv and argv[0] not in {"run", "send-batch", "schedule"}:
+    if argv and argv[0] not in {
+        "run",
+        "send-batch",
+        "schedule",
+        "approve-criteria",
+        "propose-criteria",
+    }:
         argv = ["run", *argv]
 
     parser = argparse.ArgumentParser(description="Winnow CLI")
@@ -438,6 +491,27 @@ def main(argv: list[str] | None = None) -> int:
     )
     sched_parser.add_argument("--logs-dir", type=Path, default=None)
     sched_parser.set_defaults(_handler=cmd_schedule)
+
+    approve = sub.add_parser(
+        "approve-criteria",
+        help="Approve a stored generative criteria version for orchestrator runs",
+    )
+    approve.add_argument("--id", type=int, required=True, dest="id")
+    approve.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="SQLite path (default: WINNOW_DB_PATH or logs/winnow.sqlite)",
+    )
+    approve.set_defaults(_handler=cmd_approve_criteria)
+
+    propose = sub.add_parser(
+        "propose-criteria",
+        help="Propose and store generative criteria (requires WINNOW_ALLOW_GENERATIVE=1)",
+    )
+    propose.add_argument("--config", type=Path, required=True)
+    propose.add_argument("--db", type=Path, default=None)
+    propose.set_defaults(_handler=cmd_propose_criteria)
 
     args = parser.parse_args(argv)
     return args._handler(args)

@@ -19,6 +19,7 @@ from pathlib import Path
 from winnow.budget import DEFAULT_SPEND_LOG, SpendTracker
 from winnow.store import WinnowStore
 from winnow.criteria.builder import build_criteria, parse_situation
+from winnow.criteria.generative import load_criteria_version_for_run
 from winnow.enrich import enrich
 from winnow.filter import apply_filter
 from winnow.models import Candidate, OutreachSummary, RunResult
@@ -58,6 +59,7 @@ class RunConfig:
     adapter_concurrency: int = 1
     volume_day: str = ""
     run_key: str = ""
+    criteria_version_id: int | None = None
 
 
 def _default_queries(situation) -> list[str]:
@@ -157,7 +159,14 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
     run_db_id: int | None = None
 
     situation = parse_situation(situation_input)
-    criteria, reachability, template_name = build_criteria(situation)
+    if cfg.criteria_version_id is not None:
+        if store is None:
+            raise ValueError("criteria_version_id requires RunConfig.store")
+        criteria, reachability, template_name = load_criteria_version_for_run(
+            store, cfg.criteria_version_id
+        )
+    else:
+        criteria, reachability, template_name = build_criteria(situation)
     criteria_names = tuple(c.name for c in criteria)
 
     adapters = route(situation, criteria)
