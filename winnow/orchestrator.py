@@ -17,7 +17,7 @@ from winnow.normalize import normalize_batch
 from winnow.outreach_engine import run_outreach
 from winnow.reachability import ReachabilityPredicate, default_reachable
 from winnow.situation_parser import parse_situation
-from winnow.source_router import fetch_all_ordered
+from winnow.source_router import fetch_all_ordered, resolve_adapters_from_env
 
 from winnow.adapters.base import SourceAdapter
 
@@ -74,13 +74,20 @@ def run_winnow(
     reach = reachable or default_reachable
     tracker = SpendTracker(cap_cents=cfg.spend_cap_cents)
 
-    situation_type = parse_situation(situation)
-    criteria = build_criteria(situation_type)
+    parsed = parse_situation(situation)
+    criteria = build_criteria(parsed)
     criteria_names = [c.name for c in criteria]
+
+    active_adapters = adapters
+    if not active_adapters:
+        gh_query = " ".join(
+            [parsed.situation_type, *parsed.sector_hints, *parsed.keywords]
+        ).strip()
+        active_adapters = resolve_adapters_from_env(github_query=gh_query or None)
 
     all_candidates: list[Candidate] = []
     sources_used: list[str] = []
-    for source_name, raw_records in fetch_all_ordered(adapters):
+    for source_name, raw_records in fetch_all_ordered(active_adapters):
         sources_used.append(source_name)
         all_candidates.extend(normalize_batch(raw_records, source_name))
 
@@ -96,7 +103,7 @@ def run_winnow(
     outreach: OutreachCounts = run_outreach(possible_after_enrich, suppressed_ids)
 
     result = RunResult(
-        situation_type=situation_type,
+        situation_type=parsed.situation_type,
         criteria_names=criteria_names,
         sources=sources_used,
         possible=possible_after_enrich,

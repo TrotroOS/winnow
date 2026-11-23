@@ -22,14 +22,24 @@ pip install -e ".[dev]"
 |----------|-------------|
 | `WINNOW_SPEND_CAP_CENTS` | Per-run enrichment spend cap (0 = unlimited) |
 | `WINNOW_ENRICHMENT_API_KEY` | API key for paid enrichment (never hardcoded) |
+| `WINNOW_CSV_SOURCE_DIR` | Directory of local `*.csv` candidate files (cost rank 1) |
+| `WINNOW_GITHUB_TOKEN` | GitHub API token for user search (cost rank 2; omitted in tests) |
 
 ## Running tests
 
 Tests use fixture candidates and in-memory source adapters only — no network.
 
 ```bash
-pytest
+python3 -m pytest
 ```
+
+## Dry-run CLI
+
+```bash
+python3 -m winnow run --situation "B2B SaaS launch need CTO in Ghana" --json
+```
+
+Source cost order (cheapest first): fixture (0) → CSV directory (1) → GitHub search (2, only when `WINNOW_GITHUB_TOKEN` is set).
 
 ## Package layout
 
