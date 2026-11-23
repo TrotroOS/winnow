@@ -307,6 +307,12 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
             possible_count=len(possible),
             noise_dropped=noise_dropped,
             spend_run=budget.run_spent,
+            enriched_count=enriched_count,
+            backlog_count=backlog_count,
+            sources=list(sources),
+            situation=asdict(situation),
+            run_key=cfg.run_key or "",
+            outreach=asdict(outreach),
         )
 
     return RunResult(

@@ -8,7 +8,7 @@ import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from winnow.models import Candidate
 
@@ -141,6 +141,25 @@ class WinnowStore:
             pass
         self._conn.commit()
         self._ensure_candidate_columns()
+        self._ensure_run_columns()
+
+    def _ensure_run_columns(self) -> None:
+        cur = self._conn.execute("PRAGMA table_info(runs)")
+        cols = {str(row[1]) for row in cur.fetchall()}
+        additions = {
+            "enriched_count": "INTEGER NOT NULL DEFAULT 0",
+            "backlog_count": "INTEGER NOT NULL DEFAULT 0",
+            "sources_json": "TEXT NOT NULL DEFAULT '[]'",
+            "situation_json": "TEXT NOT NULL DEFAULT '{}'",
+            "run_key": "TEXT NOT NULL DEFAULT ''",
+            "outreach_json": "TEXT NOT NULL DEFAULT '{}'",
+        }
+        for name, typedef in additions.items():
+            if name not in cols:
+                self._conn.execute(
+                    f"ALTER TABLE runs ADD COLUMN {name} {typedef}"
+                )
+        self._conn.commit()
 
     def _ensure_candidate_columns(self) -> None:
         cur = self._conn.execute("PRAGMA table_info(candidates)")
@@ -390,6 +409,12 @@ class WinnowStore:
         possible_count: int,
         noise_dropped: int,
         spend_run: float,
+        enriched_count: int = 0,
+        backlog_count: int = 0,
+        sources: Sequence[str] | None = None,
+        situation: dict[str, object] | None = None,
+        run_key: str = "",
+        outreach: dict[str, int] | None = None,
     ) -> int:
         now = datetime.now(timezone.utc).isoformat()
         cur = self._conn.cursor()
@@ -397,8 +422,10 @@ class WinnowStore:
             """
             INSERT INTO runs (
                 criteria_version_id, situation_type, possible_count,
-                noise_dropped, spend_run, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                noise_dropped, spend_run, created_at,
+                enriched_count, backlog_count, sources_json,
+                situation_json, run_key, outreach_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 criteria_version_id,
@@ -407,10 +434,78 @@ class WinnowStore:
                 noise_dropped,
                 spend_run,
                 now,
+                enriched_count,
+                backlog_count,
+                json.dumps(list(sources or ())),
+                json.dumps(dict(situation or {})),
+                run_key,
+                json.dumps(dict(outreach or {})),
             ),
         )
         self._conn.commit()
         return int(cur.lastrowid)
+
+    def get_run(self, run_id: int) -> dict[str, Any] | None:
+        cur = self._conn.execute(
+            """
+            SELECT r.*, c.template_name, c.criteria_names
+            FROM runs r
+            LEFT JOIN criteria_versions c ON c.id = r.criteria_version_id
+            WHERE r.id = ?
+            """,
+            (run_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["criteria_names"] = json.loads(payload.get("criteria_names") or "[]")
+        payload["sources"] = json.loads(payload.get("sources_json") or "[]")
+        payload["situation"] = json.loads(payload.get("situation_json") or "{}")
+        payload["outreach"] = json.loads(payload.get("outreach_json") or "{}")
+        return payload
+
+    def list_runs(self, limit: int) -> list[dict[str, Any]]:
+        lim = max(1, int(limit))
+        cur = self._conn.execute(
+            """
+            SELECT id, situation_type, possible_count, noise_dropped,
+                   spend_run, enriched_count, backlog_count, created_at
+            FROM runs
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (lim,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+    def sends_for_run(self, run_id: int) -> list[dict[str, Any]]:
+        cur = self._conn.execute(
+            """
+            SELECT channel, status, COUNT(*) AS n
+            FROM sends
+            WHERE run_id = ?
+            GROUP BY channel, status
+            ORDER BY channel, status
+            """,
+            (run_id,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+    def adapter_calls_by_run_key(self, run_key: str) -> list[dict[str, Any]]:
+        if not run_key:
+            return []
+        cur = self._conn.execute(
+            """
+            SELECT adapter, COUNT(*) AS calls
+            FROM adapter_calls
+            WHERE run_key = ?
+            GROUP BY adapter
+            ORDER BY adapter
+            """,
+            (run_key,),
+        )
+        return [dict(row) for row in cur.fetchall()]
 
     def record_send(
         self,
