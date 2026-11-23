@@ -291,3 +291,27 @@ make test
 | Halt all sends | Set `WINNOW_HALT=1` in `.env`, recreate scheduler |
 | Report / metrics | `docker compose run --rm scheduler python -m winnow.report` (when metrics enabled) |
 | Scheduler once | `make docker-once` or `run-once` service |
+
+---
+
+## Vercel (static site only)
+
+Vercel cannot run the Winnow scheduler or pipeline. It only serves the static `site/` folder (landing page; optional copied run report HTML). Dry-run and sends stay on your host or Docker.
+
+```bash
+npm i -g vercel    # or: npx vercel
+cd /path/to/winnow
+vercel link
+vercel deploy --prod
+```
+
+No environment variables are required for this static deployment.
+
+Optional — publish the latest local `logs/report_*.html` before deploy:
+
+```bash
+./scripts/publish_report_to_site.sh
+vercel deploy --prod
+```
+
+Reports are operator artifacts under `site/reports/` (gitignored); the landing page does not display candidate scores or ranks.
