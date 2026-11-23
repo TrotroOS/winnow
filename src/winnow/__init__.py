@@ -1,0 +1,1 @@
+"""Winnow: find users a startup must serve and bulk-outreach them (binary only)."""

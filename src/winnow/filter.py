@@ -1,0 +1,1 @@
+"""Binary filter and reachability gate (stubs — no business logic yet)."""

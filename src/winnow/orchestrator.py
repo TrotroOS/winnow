@@ -1,0 +1,1 @@
+"""Run orchestration: spend cap, audit, pipeline wiring (stub)."""
