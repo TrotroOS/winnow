@@ -306,6 +306,22 @@ def cmd_send_batch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_schedule(args: argparse.Namespace) -> int:
+    from winnow.scheduler import scheduled_job, run_scheduler_loop
+
+    if not args.config.is_file():
+        print(f"config not found: {args.config}", file=sys.stderr)
+        return 1
+    if args.once:
+        code, _ = scheduled_job(args.config, logs_dir=args.logs_dir)
+        return code
+    try:
+        run_scheduler_loop(args.config, logs_dir=args.logs_dir)
+    except KeyboardInterrupt:
+        return 0
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     if not args.config.is_file():
         print(f"config not found: {args.config}", file=sys.stderr)
@@ -317,7 +333,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv or sys.argv[1:])
-    if argv and argv[0] not in {"run", "send-batch"}:
+    if argv and argv[0] not in {"run", "send-batch", "schedule"}:
         argv = ["run", *argv]
 
     parser = argparse.ArgumentParser(description="Winnow CLI")
@@ -343,6 +359,19 @@ def main(argv: list[str] | None = None) -> int:
         help="Config for caps and email settings (no secrets in file)",
     )
     send_parser.set_defaults(_handler=cmd_send_batch)
+
+    sched_parser = sub.add_parser(
+        "schedule",
+        help="Daily dry-run + manual batch (never auto-sends)",
+    )
+    sched_parser.add_argument("--config", type=Path, required=True)
+    sched_parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run one scheduler cycle immediately",
+    )
+    sched_parser.add_argument("--logs-dir", type=Path, default=None)
+    sched_parser.set_defaults(_handler=cmd_schedule)
 
     args = parser.parse_args(argv)
     return args._handler(args)

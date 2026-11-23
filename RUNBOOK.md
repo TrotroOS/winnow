@@ -29,6 +29,18 @@ Winnow finds the people a startup must reach for its current situation, filters 
 
 **Kill switch before any live day:** if anything looks wrong, set `WINNOW_HALT=1` in the environment; all sends block immediately.
 
+### Optional: automated daily dry-run (scheduler)
+
+The scheduler never calls a transport. It dry-runs the pipeline, checks operator POSSIBLE bounds, writes `logs/batch_<timestamp>.json` when in range, and appends `logs/notifications.jsonl`. Set `daily_run_time` (default `09:00`) and optional `timezone` (default `UTC`) in config.
+
+```bash
+python -m winnow.run schedule --config config.yaml          # wait loop
+python -m winnow.run schedule --config config.yaml --once     # run one cycle now
+python -m winnow.scheduler --config config.yaml --once
+```
+
+Concurrent runs are blocked by `logs/winnow.run.lock`. If monthly budget remaining is below `max_spend_per_run`, the cycle is skipped (exit 0). `WINNOW_HALT=1` blocks the scheduler entirely.
+
 ---
 
 ## Weekly loop (operator)
