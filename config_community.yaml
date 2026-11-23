@@ -1,0 +1,32 @@
+# Safe community run (mock source only).
+
+situation:
+  situation_type: community
+  stage: seed
+  product: Winnow
+  goal: grow community
+  constraint: time
+  segment: devtools
+  channels:
+    - email
+
+segment: devtools
+channel: email
+sources:
+  - mock
+daily_cap: 25
+warmup_start_daily_cap: 5
+warmup_step: 5
+warmup_start_date: "2026-01-01"
+per_run_send_cap: 25
+
+max_spend_per_run: 5
+max_spend_per_month: 100
+max_sends_per_run: 25
+
+# manual_approve (default) or auto_send (bounded; see config.yaml comments)
+outreach_mode: manual_approve
+# outreach_mode: auto_send
+
+email_from: "outreach@example.com"
+unsubscribe_url: "https://example.com/unsubscribe"

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "ent-possible-mock-1",
+    "name": "Riley Ent",
+    "org": "Fortune Partner",
+    "role": "CEO",
+    "signals": {
+      "segment": "enterprise",
+      "activity_days": "7",
+      "segment_expansion_open": "yes"
+    },
+    "contacts": {"email": "riley@fortune.example"},
+    "source": "mock",
+    "collected_at": "2026-01-03T08:00:00+00:00"
+  }
+]

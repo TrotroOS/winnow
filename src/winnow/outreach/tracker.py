@@ -1,0 +1,55 @@
+"""Audit outreach delivery outcomes by candidate and template version."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Literal
+
+OutreachStatus = Literal["sent", "replied", "bounced", "opt_out"]
+
+
+@dataclass(frozen=True, slots=True)
+class OutreachRecord:
+    candidate_id: str
+    template_version: str
+    status: OutreachStatus
+    provider_message_id: str | None = None
+
+
+@dataclass
+class OutreachTracker:
+    records: list[OutreachRecord] = field(default_factory=list)
+
+    def record_sent(
+        self,
+        candidate_id: str,
+        *,
+        template_version: str,
+        provider_message_id: str | None = None,
+    ) -> None:
+        self.records.append(
+            OutreachRecord(
+                candidate_id,
+                template_version,
+                "sent",
+                provider_message_id=provider_message_id,
+            )
+        )
+
+    def record_replied(self, candidate_id: str, *, template_version: str) -> None:
+        self.records.append(
+            OutreachRecord(candidate_id, template_version, "replied")
+        )
+
+    def record_bounced(self, candidate_id: str, *, template_version: str) -> None:
+        self.records.append(
+            OutreachRecord(candidate_id, template_version, "bounced")
+        )
+
+    def record_opt_out(self, candidate_id: str, *, template_version: str) -> None:
+        self.records.append(
+            OutreachRecord(candidate_id, template_version, "opt_out")
+        )
+
+    def sent_ids(self) -> set[str]:
+        return {r.candidate_id for r in self.records if r.status == "sent"}

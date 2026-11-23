@@ -1,0 +1,29 @@
+# Second situation: enterprise segment expansion (mock + csv_fixture).
+
+situation:
+  situation_type: segment_expansion
+  stage: growth
+  product: Winnow
+  goal: segment expansion into enterprise
+  constraint: budget
+  segment: enterprise
+  channels:
+    - email
+
+segment: enterprise
+channel: email
+sources:
+  - mock
+  - csv_fixture
+daily_cap: 25
+warmup_start_daily_cap: 5
+warmup_step: 5
+warmup_start_date: "2026-01-01"
+per_run_send_cap: 25
+
+max_spend_per_run: 5
+max_spend_per_month: 100
+outreach_mode: manual_approve
+
+email_from: "outreach@example.com"
+unsubscribe_url: "https://example.com/unsubscribe"
