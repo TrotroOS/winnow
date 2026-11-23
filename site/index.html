@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Winnow</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --fg: #1a1a1a;
+      --muted: #555;
+      --bg: #fafafa;
+      --link: #0b57d0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #e8e8e8;
+        --muted: #aaa;
+        --bg: #121212;
+        --link: #8ab4f8;
+      }
+    }
+  body {
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+    max-width: 42rem;
+    margin: 2.5rem auto;
+    padding: 0 1.25rem;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  h1 { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.25rem; }
+  p { margin: 0.75rem 0; }
+  .muted { color: var(--muted); font-size: 0.95rem; }
+  a { color: var(--link); }
+  ul { padding-left: 1.25rem; }
+  code {
+    font-size: 0.9em;
+    padding: 0.1em 0.35em;
+    border-radius: 0.25em;
+    background: rgba(127, 127, 127, 0.15);
+  }
+  </style>
+</head>
+<body>
+  <h1>Winnow</h1>
+  <p class="muted">
+    Binary-only outreach pipeline: each candidate is <strong>POSSIBLE</strong> or <strong>NOISE</strong> — no scores, ranks, or fit numbers.
+  </p>
+
+  <p>
+    Operator documentation lives in the
+    <a href="https://github.com/TrotroOS/winnow/blob/main/RUNBOOK.md">RUNBOOK on GitHub</a>.
+  </p>
+
+  <h2 style="font-size:1.1rem;margin-top:1.5rem;">Run the pipeline</h2>
+  <p>
+    Dry-run and live operation run on your machine or in Docker — not on Vercel.
+  </p>
+  <ul>
+    <li>Host: <code>python -m winnow.run --config config_community.yaml --limit 50 --dry-run</code></li>
+    <li>Docker: <code>docker compose --profile manual run --rm dry-run</code> (see RUNBOOK)</li>
+  </ul>
+
+  <p class="muted" style="margin-top:2rem;">
+    This page is a static landing surface only. The scheduler, store, and sends stay local.
+  </p>
+</body>
+</html>
