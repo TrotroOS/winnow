@@ -15,6 +15,7 @@ from winnow.feedback import TemplateStats, emit_suggestions, suggest
 from winnow.criteria.builder import build_criteria, parse_situation
 from winnow.models import Candidate, RunResult
 from winnow.orchestrator import RunConfig, run
+from winnow.sources.volume import parse_adapter_volume_config
 from winnow.outreach.batch_send import SendBatchConfig, send_batch
 from winnow.outreach.batcher import channel_priority_from_config
 from winnow.outreach.guards import resolve_manual_approve
@@ -143,6 +144,13 @@ def _run_config_from_yaml(
             raw.get("matched_signal_max_age_days", DEFAULT_MATCHED_SIGNAL_MAX_AGE_DAYS)
         ),
         channel_priority=channel_priority_from_config(raw),
+        adapter_volume=parse_adapter_volume_config(
+            raw.get("adapter_volume")
+            if isinstance(raw.get("adapter_volume"), dict)
+            else None,
+            default_concurrency=int(raw.get("adapter_concurrency", 1)),
+        ),
+        adapter_concurrency=int(raw.get("adapter_concurrency", 1)),
     )
 
 

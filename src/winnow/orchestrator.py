@@ -1,8 +1,16 @@
-"""Run orchestration: spend cap, audit, pipeline wiring."""
+"""Run orchestration: spend cap, audit, pipeline wiring.
+
+Bulk filter: ``filter.evaluate`` / ``apply_filter`` are pure per-candidate bool
+predicates with no shared mutable state. Candidate rows can be evaluated in parallel
+chunks; this module always calls ``apply_filter`` sequentially so NOISE semantics stay
+obvious in audit logs. Normalization and filter run on every candidate on every run
+even when adapter search hits the same-day cache (cache supplies raw rows only).
+"""
 
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -18,6 +26,12 @@ from winnow.normalize import dedupe, normalize
 from winnow.outreach.engine import run_outreach
 from winnow.router import route
 from winnow.sources.adapter import SourceAdapter
+from winnow.sources.volume import (
+    AdapterVolumeSpec,
+    VolumeWrappedAdapter,
+    parse_adapter_volume_config,
+    wrap_adapters,
+)
 
 
 @dataclass
@@ -40,6 +54,10 @@ class RunConfig:
     matched_signal_max_age_days: int = 30
     channel_priority: tuple[str, ...] = ()
     store: WinnowStore | None = None
+    adapter_volume: dict[str, AdapterVolumeSpec] = field(default_factory=dict)
+    adapter_concurrency: int = 1
+    volume_day: str = ""
+    run_key: str = ""
 
 
 def _default_queries(situation) -> list[str]:
@@ -67,8 +85,46 @@ def _normalize_item(item: object, source_name: str) -> Candidate:
     return normalize(_candidate_to_raw(item), source_name)
 
 
-def _collect_free(
+def _volume_day(cfg: RunConfig) -> str:
+    if cfg.volume_day:
+        return cfg.volume_day
+    ref = cfg.filter_now or datetime.now(timezone.utc)
+    if ref.tzinfo is None:
+        ref = ref.replace(tzinfo=timezone.utc)
+    return ref.astimezone(timezone.utc).date().isoformat()
+
+
+def _wrap_volume(
     adapters: Sequence[SourceAdapter],
+    cfg: RunConfig,
+) -> list[VolumeWrappedAdapter | SourceAdapter]:
+    if cfg.store is None:
+        return list(adapters)
+    run_key = cfg.run_key or uuid.uuid4().hex
+    cfg.run_key = run_key
+    return wrap_adapters(
+        adapters,
+        store=cfg.store,
+        specs=cfg.adapter_volume,
+        day=_volume_day(cfg),
+        run_key=run_key,
+        default_concurrency=cfg.adapter_concurrency,
+    )
+
+
+def _mark_enrich_backlog(
+    store: WinnowStore,
+    rows: Sequence[Candidate],
+    backlog_count: int,
+) -> None:
+    if backlog_count <= 0:
+        return
+    for candidate in rows[-backlog_count:]:
+        store.save_candidate(candidate, "possible", backlog=True)
+
+
+def _collect_free(
+    adapters: Sequence[SourceAdapter | VolumeWrappedAdapter],
     queries: list[str],
     limit: int,
 ) -> list[Candidate]:
@@ -105,12 +161,17 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
     criteria_names = tuple(c.name for c in criteria)
 
     adapters = route(situation, criteria)
+    volume_adapters = _wrap_volume(adapters, cfg)
     sources = tuple(a.name for a in adapters)
+
+    backlog_rows: list[Candidate] = []
+    if store is not None:
+        backlog_rows = store.backlog_candidates()
 
     queries = list(cfg.search_queries) or _default_queries(situation)
 
     raw_collected = _collect_free(
-        [a for a in adapters if a.cost_per_call <= 0],
+        [a for a in volume_adapters if a.cost_per_call <= 0],
         queries,
         cfg.search_limit,
     )
@@ -136,19 +197,47 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
     enrich_noise = 0
     paid_search_calls = 0
 
-    if possible and not cfg.dry_run:
-        enriched_rows, backlog_count, enrich_noise, paid_search_calls = enrich(
-            list(possible),
-            adapters,
-            criteria,
-            reachability,
-            budget,
-            queries=queries,
-            enrich_limit=cfg.enrich_limit,
-            now=cfg.filter_now,
-        )
-    elif possible and cfg.dry_run and any(a.cost_per_call > 0 for a in adapters):
-        backlog_count = len(possible)
+    if not cfg.dry_run:
+        if backlog_rows:
+            batch, backlog_count, noise_part, paid_part = enrich(
+                backlog_rows,
+                volume_adapters,
+                criteria,
+                reachability,
+                budget,
+                queries=queries,
+                enrich_limit=cfg.enrich_limit,
+                now=cfg.filter_now,
+            )
+            enriched_rows.extend(batch)
+            enrich_noise += noise_part
+            paid_search_calls += paid_part
+            if store is not None:
+                for row in batch:
+                    store.set_backlog(row.id, False)
+                if backlog_count > 0:
+                    _mark_enrich_backlog(store, backlog_rows, backlog_count)
+        if possible:
+            batch, backlog_part, noise_part, paid_part = enrich(
+                list(possible),
+                volume_adapters,
+                criteria,
+                reachability,
+                budget,
+                queries=queries,
+                enrich_limit=cfg.enrich_limit,
+                now=cfg.filter_now,
+            )
+            enriched_rows.extend(batch)
+            backlog_count += backlog_part
+            enrich_noise += noise_part
+            paid_search_calls += paid_part
+            if store is not None and backlog_part > 0:
+                _mark_enrich_backlog(store, list(possible), backlog_part)
+    elif (possible or backlog_rows) and cfg.dry_run and any(
+        a.cost_per_call > 0 for a in adapters
+    ):
+        backlog_count = len(backlog_rows) + len(possible)
 
     if enriched_rows:
         enriched_count = len(enriched_rows)

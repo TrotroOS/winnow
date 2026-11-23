@@ -109,8 +109,36 @@ class WinnowStore:
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (run_id) REFERENCES runs(id)
             );
+
+            CREATE TABLE IF NOT EXISTS adapter_calls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                adapter TEXT NOT NULL,
+                day TEXT NOT NULL,
+                run_key TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS adapter_cache (
+                adapter TEXT NOT NULL,
+                query_key TEXT NOT NULL,
+                day TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (adapter, query_key, day)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_adapter_calls_day
+                ON adapter_calls(adapter, day);
+            CREATE INDEX IF NOT EXISTS idx_adapter_calls_run
+                ON adapter_calls(adapter, run_key);
             """
         )
+        try:
+            cur.execute(
+                "ALTER TABLE candidates ADD COLUMN backlog INTEGER NOT NULL DEFAULT 0"
+            )
+        except sqlite3.OperationalError:
+            pass
         self._conn.commit()
         self._ensure_candidate_columns()
 
@@ -129,7 +157,9 @@ class WinnowStore:
                 )
         self._conn.commit()
 
-    def save_candidate(self, candidate: Candidate, status: str) -> str:
+    def save_candidate(
+        self, candidate: Candidate, status: str, *, backlog: bool = False
+    ) -> str:
         """Persist a non-NOISE candidate; merge on normalized (name, org)."""
         if status == "noise":
             raise ValueError("cannot persist NOISE candidates")
@@ -156,7 +186,7 @@ class WinnowStore:
                 """
                 UPDATE candidates
                 SET last_seen = ?, status = ?, role = ?, source = ?,
-                    contacts_json = ?, signals_json = ?
+                    contacts_json = ?, signals_json = ?, backlog = ?
                 WHERE id = ?
                 """,
                 (
@@ -166,6 +196,7 @@ class WinnowStore:
                     candidate.source,
                     contacts,
                     signals,
+                    1 if backlog else 0,
                     candidate_id,
                 ),
             )
@@ -175,8 +206,8 @@ class WinnowStore:
                 """
                 INSERT INTO candidates (
                     id, name, org, name_norm, org_norm, status, last_seen,
-                    role, source, contacts_json, signals_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    role, source, contacts_json, signals_json, backlog
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     candidate_id,
@@ -190,10 +221,133 @@ class WinnowStore:
                     candidate.source,
                     contacts,
                     signals,
+                    1 if backlog else 0,
                 ),
             )
         self._conn.commit()
         return candidate_id
+
+    def set_backlog(self, candidate_id: str, backlog: bool) -> None:
+        self._conn.execute(
+            "UPDATE candidates SET backlog = ? WHERE id = ?",
+            (1 if backlog else 0, candidate_id),
+        )
+        self._conn.commit()
+
+    def backlog_candidates(self) -> list[Candidate]:
+        cur = self._conn.execute(
+            """
+            SELECT id, name, org, role, source, contacts_json, signals_json, last_seen
+            FROM candidates
+            WHERE status = 'possible' AND backlog = 1
+            ORDER BY last_seen ASC
+            """
+        )
+        rows: list[Candidate] = []
+        for row in cur.fetchall():
+            contacts = json.loads(row["contacts_json"] or "{}")
+            signals = json.loads(row["signals_json"] or "{}")
+            collected_raw = row["last_seen"]
+            try:
+                collected_at = datetime.fromisoformat(str(collected_raw))
+            except ValueError:
+                collected_at = datetime.now(timezone.utc)
+            rows.append(
+                Candidate(
+                    id=str(row["id"]),
+                    name=str(row["name"]),
+                    org=str(row["org"]),
+                    role=str(row["role"] or ""),
+                    signals={str(k): str(v) for k, v in signals.items()},
+                    contacts={str(k): str(v) for k, v in contacts.items()},
+                    source=str(row["source"] or ""),
+                    collected_at=collected_at,
+                )
+            )
+        return rows
+
+    def adapter_calls_day(self, adapter: str, day: str) -> int:
+        cur = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM adapter_calls WHERE adapter = ? AND day = ?",
+            (adapter, day),
+        )
+        row = cur.fetchone()
+        return int(row["n"] if row else 0)
+
+    def adapter_calls_run(self, adapter: str, run_key: str) -> int:
+        cur = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM adapter_calls WHERE adapter = ? AND run_key = ?",
+            (adapter, run_key),
+        )
+        row = cur.fetchone()
+        return int(row["n"] if row else 0)
+
+    def record_adapter_call(self, adapter: str, *, day: str, run_key: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        self._conn.execute(
+            """
+            INSERT INTO adapter_calls (adapter, day, run_key, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (adapter, day, run_key, now),
+        )
+        self._conn.commit()
+
+    def quota_allows(
+        self,
+        adapter: str,
+        *,
+        day: str,
+        run_key: str,
+        per_run: int | None,
+        per_day: int | None,
+    ) -> tuple[bool, str]:
+        if per_run is not None and self.adapter_calls_run(adapter, run_key) >= per_run:
+            return False, f"adapter {adapter!r} per-run quota ({per_run}) reached"
+        if per_day is not None and self.adapter_calls_day(adapter, day) >= per_day:
+            return False, f"adapter {adapter!r} per-day quota ({per_day}) reached"
+        return True, ""
+
+    def cache_get(
+        self, adapter: str, query_key: str, day: str
+    ) -> list[dict[str, object]] | None:
+        cur = self._conn.execute(
+            """
+            SELECT payload FROM adapter_cache
+            WHERE adapter = ? AND query_key = ? AND day = ?
+            """,
+            (adapter, query_key, day),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        try:
+            data = json.loads(row["payload"])
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(data, list):
+            return None
+        return [dict(x) for x in data if isinstance(x, dict)]
+
+    def cache_put(
+        self,
+        adapter: str,
+        query_key: str,
+        day: str,
+        items: list[dict[str, object]],
+    ) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        self._conn.execute(
+            """
+            INSERT INTO adapter_cache (adapter, query_key, day, payload, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(adapter, query_key, day) DO UPDATE SET
+                payload = excluded.payload,
+                created_at = excluded.created_at
+            """,
+            (adapter, query_key, day, json.dumps(items, default=str), now),
+        )
+        self._conn.commit()
 
     def set_candidate_status(self, candidate_id: str, status: str) -> None:
         if status == "noise":
