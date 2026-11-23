@@ -1,0 +1,182 @@
+[
+  {
+    "id": "demo-noise-role-01",
+    "name": "Pat Barista",
+    "org": "Willow Street Coffee",
+    "role": "Barista",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "10",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "pat@willowstreet.coffee" },
+    "collected_at": "2026-11-20T10:00:00+00:00",
+    "noise_intent": "wrong_role",
+    "comment": "Barista is not a decision maker; should fail decision_maker."
+  },
+  {
+    "id": "demo-noise-role-02",
+    "name": "Alex Shift",
+    "org": "Daily Grind Roasters",
+    "role": "Shift Supervisor",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "8",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "alex@dailygrind.coffee" },
+    "collected_at": "2026-11-19T09:00:00+00:00",
+    "noise_intent": "wrong_role",
+    "comment": "Supervisor without founder/ceo/owner tokens; fails decision_maker."
+  },
+  {
+    "id": "demo-noise-org-01",
+    "name": "Chain Buyer East",
+    "org": "Starbucks Corporation",
+    "role": "CEO",
+    "signals": {
+      "revenue_ready": "no",
+      "activity_days": "12",
+      "segment": "national coffee chains"
+    },
+    "contacts": { "email": "buyer@starbucks.example" },
+    "collected_at": "2026-11-18T08:00:00+00:00",
+    "noise_intent": "wrong_org",
+    "comment": "National chain HQ, not independent coffee shop; fails revenue_ready (no org_in_segment in first_revenue — see mismatch note)."
+  },
+  {
+    "id": "demo-noise-org-02",
+    "name": "Chain Buyer West",
+    "org": "Dunkin Brands Group",
+    "role": "VP Procurement",
+    "signals": {
+      "revenue_ready": "no",
+      "activity_days": "6",
+      "segment": "franchise coffee"
+    },
+    "contacts": { "email": "procurement@dunkin.example" },
+    "collected_at": "2026-11-17T07:00:00+00:00",
+    "noise_intent": "wrong_org",
+    "comment": "Franchise conglomerate; fails revenue_ready. first_revenue has no org/segment predicate."
+  },
+  {
+    "id": "demo-noise-stale-01",
+    "name": "Stale One",
+    "org": "Old Mill Coffee",
+    "role": "Owner",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "61",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "stale1@oldmill.coffee" },
+    "collected_at": "2026-08-01T10:00:00+00:00",
+    "noise_intent": "no_recent_signal",
+    "comment": "activity_days 61 exceeds 60-day recent_activity window."
+  },
+  {
+    "id": "demo-noise-stale-02",
+    "name": "Stale Two",
+    "org": "Quiet Corner Cafe",
+    "role": "Founder",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "90",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "stale2@quietcorner.coffee" },
+    "collected_at": "2026-07-15T10:00:00+00:00",
+    "noise_intent": "no_recent_signal",
+    "comment": "Dormant signal; fails recent_activity."
+  },
+  {
+    "id": "demo-noise-stale-03",
+    "name": "Stale Three",
+    "org": "Faded Roast",
+    "role": "CEO",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "120",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "stale3@fadedroast.coffee" },
+    "collected_at": "2026-06-01T10:00:00+00:00",
+    "noise_intent": "no_recent_signal",
+    "comment": "Very stale activity; fails recent_activity predicate."
+  },
+  {
+    "id": "demo-noise-unreach-01",
+    "name": "Ghost One",
+    "org": "No Contact Roasters",
+    "role": "Owner",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "10",
+      "segment": "independent coffee shops"
+    },
+    "contacts": {},
+    "collected_at": "2026-11-20T10:00:00+00:00",
+    "noise_intent": "unreachable",
+    "comment": "Empty contacts; fails reachability hard gate before criteria."
+  },
+  {
+    "id": "demo-noise-unreach-02",
+    "name": "Ghost Two",
+    "org": "Blank Email Cafe",
+    "role": "Founder",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "5",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "   ", "phone": "+15550001111" },
+    "collected_at": "2026-11-19T09:00:00+00:00",
+    "noise_intent": "unreachable",
+    "comment": "Whitespace email only; phone is not a reachability key."
+  },
+  {
+    "id": "demo-noise-unreach-03",
+    "name": "Ghost Three",
+    "org": "Silent Steam",
+    "role": "CEO",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "2",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "website": "https://silentsteam.coffee" },
+    "collected_at": "2026-11-22T08:00:00+00:00",
+    "noise_intent": "unreachable",
+    "comment": "Website is not email/linkedin/dm; unreachable."
+  },
+  {
+    "id": "demo-pos-01",
+    "name": "Jordan Pike (stale import)",
+    "org": "Willow Street Coffee",
+    "role": "Owner",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "14",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "jordan.old@willowstreet.coffee" },
+    "collected_at": "2026-01-01T08:00:00+00:00",
+    "noise_intent": "duplicate_of_possible",
+    "comment": "Duplicate id demo-pos-01 with older collected_at; dropped at dedupe."
+  },
+  {
+    "id": "demo-pos-02",
+    "name": "Sam Ortiz (CSV re-import)",
+    "org": "Daily Grind Roasters",
+    "role": "Founder",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "7",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "sam.old@dailygrind.coffee" },
+    "collected_at": "2026-02-01T08:00:00+00:00",
+    "noise_intent": "duplicate_of_possible",
+    "comment": "Duplicate id demo-pos-02; survivor is newer row from demo_possible.json."
+  }
+]

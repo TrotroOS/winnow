@@ -1,0 +1,170 @@
+[
+  {
+    "id": "demo-pos-01",
+    "name": "Jordan Pike",
+    "org": "Willow Street Coffee",
+    "role": "Owner",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "14",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "jordan@willowstreet.coffee" },
+    "collected_at": "2026-11-20T10:00:00+00:00",
+    "comment": "Indie shop owner; passes revenue_ready, recent_activity (14d), decision_maker."
+  },
+  {
+    "id": "demo-pos-02",
+    "name": "Sam Ortiz",
+    "org": "Daily Grind Roasters",
+    "role": "Founder",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "7",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "sam@dailygrind.coffee" },
+    "collected_at": "2026-11-18T09:00:00+00:00",
+    "comment": "Founder-operated roastery cafe; all first_revenue predicates pass."
+  },
+  {
+    "id": "demo-pos-03",
+    "name": "Avery Chen",
+    "org": "Corner Cup Espresso",
+    "role": "CEO",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "21",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "avery@cornercup.coffee" },
+    "collected_at": "2026-11-15T14:00:00+00:00",
+    "comment": "Single-location CEO; reachable email; revenue-ready signal."
+  },
+  {
+    "id": "demo-pos-04",
+    "name": "Riley Moss",
+    "org": "Bean & Birch",
+    "role": "Co-Owner",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "30",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "riley@beanandbirch.coffee" },
+    "collected_at": "2026-11-10T11:00:00+00:00",
+    "comment": "Co-Owner matches decision_maker; activity within 60 days."
+  },
+  {
+    "id": "demo-pos-05",
+    "name": "Casey Brooks",
+    "org": "Harbor Light Coffee House",
+    "role": "Director of Operations",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "5",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "casey@harborlight.coffee" },
+    "collected_at": "2026-11-22T08:00:00+00:00",
+    "comment": "Director role passes decision_maker; very recent activity."
+  },
+  {
+    "id": "demo-pos-06",
+    "name": "Morgan Tate",
+    "org": "Rustic Bean Cafe",
+    "role": "VP Retail",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "45",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "morgan@rusticbean.coffee" },
+    "collected_at": "2026-11-01T16:00:00+00:00",
+    "comment": "VP at indie cafe; still within 60-day activity window."
+  },
+  {
+    "id": "demo-pos-07",
+    "name": "Drew Alvarez",
+    "org": "Lighthouse Latte Bar",
+    "role": "Head of Retail",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "12",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "drew@lighthouselatte.coffee" },
+    "collected_at": "2026-11-19T13:00:00+00:00",
+    "comment": "Head role passes decision_maker predicate."
+  },
+  {
+    "id": "demo-pos-08",
+    "name": "Jamie Fox",
+    "org": "Trailhead Coffee Co",
+    "role": "Founder & CEO",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "18",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "jamie@trailhead.coffee" },
+    "collected_at": "2026-11-17T10:30:00+00:00",
+    "comment": "Dual title founder/CEO; typical first_revenue ICP."
+  },
+  {
+    "id": "demo-pos-09",
+    "name": "Quinn Rivera",
+    "org": "Sunrise Sip Studio",
+    "role": "Owner",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "55",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "quinn@sunrisesip.coffee" },
+    "collected_at": "2026-10-01T12:00:00+00:00",
+    "comment": "Near 60-day boundary but still passes recent_activity."
+  },
+  {
+    "id": "demo-pos-10",
+    "name": "Taylor Ng",
+    "org": "Maple Steam Coffee",
+    "role": "Owner",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "9",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "linkedin": "https://linkedin.com/in/taylor-ng-maple" },
+    "collected_at": "2026-11-21T07:00:00+00:00",
+    "comment": "LinkedIn reachability path; owner role."
+  },
+  {
+    "id": "demo-pos-11",
+    "name": "Reese Parker",
+    "org": "Velvet Crema",
+    "role": "Founder",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "3",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "dm": "@velvetcrema" },
+    "collected_at": "2026-11-23T06:00:00+00:00",
+    "comment": "DM contact channel; demonstrates dm reachability key."
+  },
+  {
+    "id": "demo-pos-12",
+    "name": "Blake Harmon",
+    "org": "Perch & Pour",
+    "role": "CEO",
+    "signals": {
+      "revenue_ready": "yes",
+      "activity_days": "60",
+      "segment": "independent coffee shops"
+    },
+    "contacts": { "email": "blake@perchandpour.coffee" },
+    "collected_at": "2026-09-24T12:00:00+00:00",
+    "comment": "activity_days exactly 60 — edge of recent_activity predicate."
+  }
+]
