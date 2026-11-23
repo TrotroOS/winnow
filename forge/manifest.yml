@@ -1,0 +1,99 @@
+environment:
+  variables:
+    - key: APP_ID
+      default: "00000000-0000-0000-0000-000000000000"
+    - key: WINNOW_API_BASE_URL
+      default: "https://winnow-api.invalid"
+
+app:
+  id: ari:cloud:ecosystem::app/${APP_ID}
+  runtime:
+    name: nodejs24.x
+  licensing:
+    enabled: false
+
+remotes:
+  - key: winnow-api
+    baseUrl: ${WINNOW_API_BASE_URL}
+    operations:
+      - compute
+
+modules:
+  rovo:agent:
+    - key: winnow-agent
+      name: Winnow
+      description: >
+        BINARY ONLY outreach finder — describes your startup situation,
+        triggers a Winnow run, and reports POSSIBLE count plus audit summary.
+      icon: resource:ui-assets;icons/winnow.svg
+      prompt: resource:prompts;winnow-agent.txt
+      conversationStarters:
+        - Describe my startup situation for outreach
+        - Run Winnow on our launch situation
+        - Show POSSIBLE count and audit summary from the last run
+      actions:
+        - describe-situation
+        - trigger-winnow-run
+
+  jira:globalPage:
+    - key: winnow-global-page
+      title: Winnow
+      route: winnow
+      resource: ui
+      resolver:
+        function: winnow-ui-resolver
+
+  action:
+    - key: describe-situation
+      name: Describe situation
+      function: describeSituation
+      actionVerb: GET
+      description: >
+        Parse the user's startup situation and return situation type and criteria
+        names. BINARY ONLY — no scores or rankings.
+      inputs:
+        situation:
+          title: Situation
+          type: string
+          required: true
+          description: Plain-language description of the startup situation to serve.
+
+    - key: trigger-winnow-run
+      name: Trigger Winnow run
+      function: triggerWinnowRun
+      actionVerb: TRIGGER
+      description: >
+        Run the Winnow pipeline for a situation. Returns POSSIBLE count,
+        noise_dropped count, and an audit summary. Never ranks or scores candidates.
+      inputs:
+        situation:
+          title: Situation
+          type: string
+          required: true
+          description: Situation string passed to the Python core or stub run.
+
+  function:
+    - key: describeSituation
+      handler: index.describeSituation
+    - key: triggerWinnowRun
+      handler: index.triggerWinnowRun
+    - key: winnow-ui-resolver
+      handler: index.handler
+
+resources:
+  - key: prompts
+    path: src/prompts
+  - key: ui
+    path: static
+  - key: ui-assets
+    path: static/assets
+
+permissions:
+  scopes: []
+  content:
+    styles:
+      - unsafe-inline
+  external:
+    fetch:
+      backend:
+        - remote: winnow-api
