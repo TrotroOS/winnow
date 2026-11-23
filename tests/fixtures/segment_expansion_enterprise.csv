@@ -1,0 +1,3 @@
+id,name,org,role,email,segment,activity_days,segment_expansion_open,source,collected_at
+ent-possible-1,Morgan Lee,GlobalScale Corp,VP Sales,morgan@globalscale.test,enterprise,12,yes,csv_fixture,2026-01-05T10:00:00+00:00
+ent-noise-1,Pat Quiet,Silent LLC,Analyst,,enterprise,12,yes,csv_fixture,2026-01-06T10:00:00+00:00

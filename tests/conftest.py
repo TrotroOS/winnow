@@ -8,47 +8,27 @@ from winnow.models import Candidate
 
 
 @pytest.fixture
-def sample_candidates() -> list[Candidate]:
-    now = datetime(2025, 1, 1, tzinfo=timezone.utc)
-    return [
-        Candidate(
-            id="c1",
-            name="Ada Lovelace",
-            org="Analytical Engines",
-            role="CTO",
-            signals={"stage": "seed"},
-            contacts={"email": "ada@example.com"},
-            source="fixture",
-            collected_at=now,
-        ),
-        Candidate(
-            id="c2",
-            name="Bob Null",
-            org="",
-            role="Founder",
-            signals={},
-            contacts={"email": "bob@example.com"},
-            source="fixture",
-            collected_at=now,
-        ),
-        Candidate(
-            id="c3",
-            name="Carol Offline",
-            org="Quiet Co",
-            role="CEO",
-            signals={},
-            contacts={},
-            source="fixture",
-            collected_at=now,
-        ),
-        Candidate(
-            id="c1",
-            name="Ada Lovelace",
-            org="Analytical Engines",
-            role="CTO",
-            signals={"stage": "seed"},
-            contacts={"email": "ada@example.com"},
-            source="fixture_dup",
-            collected_at=now,
-        ),
-    ]
+def make_candidate():
+    def _make_candidate(
+        *,
+        id: str = "cand-1",
+        name: str = "Ada Lovelace",
+        org: str = "Example Org",
+        role: str = "Engineer",
+        signals: dict[str, str] | None = None,
+        contacts: dict[str, str] | None = None,
+        source: str = "fixture",
+        collected_at: datetime | None = None,
+    ) -> Candidate:
+        return Candidate(
+            id=id,
+            name=name,
+            org=org,
+            role=role,
+            signals=signals or {},
+            contacts=contacts or {},
+            source=source,
+            collected_at=collected_at or datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+
+    return _make_candidate

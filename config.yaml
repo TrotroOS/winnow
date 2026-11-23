@@ -1,0 +1,44 @@
+# Safe defaults for a first live run (no secrets). Uses mock fixtures only.
+
+situation:
+  situation_type: community
+  stage: seed
+  product: Winnow
+  goal: grow community
+  constraint: time
+  segment: devtools
+  channels:
+    - email
+
+segment: devtools
+channel: email
+sources:
+  - mock
+daily_cap: 25
+# Domain warm-up (operator tuning refs — not candidate scores):
+warmup_start_daily_cap: 5
+warmup_step: 5
+warmup_start_date: "2026-01-01"
+per_run_send_cap: 25
+
+max_spend_per_run: 5
+max_spend_per_month: 100
+max_sends_per_run: 25
+
+# Outreach: manual_approve writes logs/batch_*.json for review; auto_send sends
+# immediately within daily_cap, max_sends_per_run, suppression, and spend caps.
+# auto_send is refused when WINNOW_HALT=1 or recent audit bounce/reply guard trips.
+outreach_mode: manual_approve
+# outreach_mode: auto_send
+
+# Email transport (set in env for live send-batch --confirm only):
+# WINNOW_EMAIL_PROVIDER: sendgrid|ses
+# SENDGRID_API_KEY / AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
+email_from: "outreach@example.com"
+unsubscribe_url: "https://example.com/unsubscribe?c={candidate_id}"
+sender_identity: "Winnow Outreach"
+physical_address: "123 Example St, Example City, EX 00000"
+tracking_pixel_enabled: false
+# tracking_pixel_url: "https://example.com/pixel"
+max_per_hour_per_recipient_domain: 20
+retention_inactive_days: 365
