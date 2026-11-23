@@ -81,6 +81,17 @@ def _matching_candidate(template: str, *, segment: str = "devtools") -> dict:
             signals={"community_member": "yes", "activity_days": "3"},
             contacts=email,
         )
+    if template == "segment_expansion":
+        return dict(
+            org="Enterprise Co",
+            role="CEO",
+            signals={
+                "segment_expansion_open": "yes",
+                "segment": segment,
+                "activity_days": "14",
+            },
+            contacts=email,
+        )
     raise KeyError(template)
 
 
@@ -97,12 +108,13 @@ def _non_matching_candidate(template: str) -> dict:
 def test_template_matching_candidate_passes_filter(
     make_candidate, template_name: str
 ) -> None:
-    data = _base_data(situation_type=template_name, segment="devtools")
+    segment = "enterprise" if template_name == "segment_expansion" else "devtools"
+    data = _base_data(situation_type=template_name, segment=segment)
     situation = parse_situation(data)
     criteria, reachability, name = build_criteria(situation)
     assert name == template_name
 
-    good = make_candidate(**_matching_candidate(template_name))
+    good = make_candidate(**_matching_candidate(template_name, segment=segment))
     possible, dropped = apply_filter([good], criteria, reachability)
     assert possible == [good]
     assert dropped == 0
@@ -112,7 +124,8 @@ def test_template_matching_candidate_passes_filter(
 def test_template_non_matching_candidate_dropped(
     make_candidate, template_name: str
 ) -> None:
-    data = _base_data(situation_type=template_name, segment="devtools")
+    segment = "enterprise" if template_name == "segment_expansion" else "devtools"
+    data = _base_data(situation_type=template_name, segment=segment)
     situation = parse_situation(data)
     criteria, reachability, _ = build_criteria(situation)
 

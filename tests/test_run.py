@@ -97,10 +97,10 @@ def test_dry_run_zero_paid_calls(tmp_path: Path) -> None:
     paid = PaidSpy()
     logs = tmp_path / "logs"
 
-    with patch(
-        "winnow.run._register_source",
-        lambda _name: _register_free_plus_paid(free, paid),
-    ):
+    def _reg_sources(_raw: dict) -> None:
+        _register_free_plus_paid(free, paid)
+
+    with patch("winnow.run.register_sources_from_config", _reg_sources):
         result, _ = execute(
             config,
             limit=50,
@@ -118,11 +118,11 @@ def test_limit_enforced_on_collection(tmp_path: Path) -> None:
     free = ManyFixture(rows=[_community_row(i) for i in range(20)])
     logs = tmp_path / "logs"
 
-    def _reg(_name: str) -> None:
+    def _reg(_raw: dict) -> None:
         clear()
         register(free)
 
-    with patch("winnow.run._register_source", _reg):
+    with patch("winnow.run.register_sources_from_config", _reg):
         result, _ = execute(config, limit=3, dry_run=True, logs_dir=logs)
 
     assert free.limits_seen == [3]
@@ -135,11 +135,11 @@ def test_printed_summary_contains_required_fields(
     config = _community_yaml(tmp_path)
     free = ManyFixture(rows=[_community_row(0)])
 
-    def _reg(_name: str) -> None:
+    def _reg(_raw: dict) -> None:
         clear()
         register(free)
 
-    with patch("winnow.run._register_source", _reg):
+    with patch("winnow.run.register_sources_from_config", _reg):
         code = main(
             ["run", "--config", str(config), "--limit", "5", "--dry-run"],
         )
@@ -176,11 +176,11 @@ def test_manual_approve_never_calls_transport(tmp_path: Path) -> None:
     spy = SpyTransport()
     logs = tmp_path / "logs"
 
-    def _reg(_name: str) -> None:
+    def _reg(_raw: dict) -> None:
         clear()
         register(free)
 
-    with patch("winnow.run._register_source", _reg):
+    with patch("winnow.run.register_sources_from_config", _reg):
         result, _ = execute(config, logs_dir=logs)
 
     raw = yaml.safe_load(config.read_text(encoding="utf-8"))

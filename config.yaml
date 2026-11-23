@@ -12,7 +12,8 @@ situation:
 
 segment: devtools
 channel: email
-source: mock
+sources:
+  - mock
 daily_cap: 25
 # Domain warm-up (operator tuning refs — not candidate scores):
 warmup_start_daily_cap: 5

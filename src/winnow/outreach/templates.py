@@ -39,6 +39,11 @@ MESSAGE_TEMPLATES: dict[str, str] = {
         "Noticed {matched_signal} at {org}. "
         "We'd love your perspective as we grow the community."
     ),
+    "segment_expansion": (
+        "Hi {name},\n\n"
+        "Noticed {matched_signal} at {org}. "
+        "We're exploring expansion in your segment — open to a brief chat?"
+    ),
 }
 
 

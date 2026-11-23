@@ -21,6 +21,7 @@ from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.throttle import Throttle
 from winnow.outreach.tracker import OutreachTracker
 from winnow.outreach.warmup import effective_daily_cap
+from winnow.sources.csv_fixture import CsvFixtureSource
 from winnow.sources.mock import MockSource
 from winnow.sources.registry import clear, register
 
@@ -52,12 +53,28 @@ def _situation_from_config(raw: dict) -> dict:
     }
 
 
-def _register_source(source_name: str) -> None:
+def _adapter_for(name: str):
+    if name == "mock":
+        return MockSource()
+    if name == "csv_fixture":
+        return CsvFixtureSource()
+    raise SystemExit(f"unsupported source {name!r}")
+
+
+def _source_names_from_config(raw: dict) -> list[str]:
+    sources = raw.get("sources")
+    if isinstance(sources, (list, tuple)):
+        return [str(s) for s in sources]
+    if raw.get("source"):
+        return [str(raw["source"])]
+    return ["mock"]
+
+
+def register_sources_from_config(raw: dict) -> None:
+    """Register every adapter listed in config (order preserved before router sort)."""
     clear()
-    if source_name == "mock":
-        register(MockSource())
-        return
-    raise SystemExit(f"unsupported source {source_name!r} (safe default: mock)")
+    for name in _source_names_from_config(raw):
+        register(_adapter_for(name))
 
 
 def _run_config_from_yaml(
@@ -162,8 +179,7 @@ def execute(
 ) -> tuple[RunResult, str]:
     raw = _load_yaml(config_path)
     situation_input = _situation_from_config(raw)
-    source_name = str(raw.get("source", "mock"))
-    _register_source(source_name)
+    register_sources_from_config(raw)
 
     base_logs = logs_dir or Path("logs")
     spend_log = base_logs / "spend.json"

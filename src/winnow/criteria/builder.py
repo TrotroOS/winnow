@@ -19,6 +19,12 @@ _GOAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "investors": ("investor", "investment", "fundraise", "funding", "vc", "seed round"),
     "hires": ("hire", "hiring", "recruit", "headcount", "talent"),
     "community": ("community", "members", "ambassador", "evangelist"),
+    "segment_expansion": (
+        "segment expansion",
+        "expand segment",
+        "enterprise expansion",
+        "new segment",
+    ),
 }
 
 

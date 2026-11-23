@@ -1,0 +1,16 @@
+[
+  {
+    "id": "ent-json-possible-1",
+    "name": "Jordan Kim",
+    "org": "Enterprise Hub",
+    "role": "Director",
+    "signals": {
+      "segment": "enterprise",
+      "activity_days": "8",
+      "segment_expansion_open": "yes"
+    },
+    "contacts": {"email": "jordan@enterprisehub.test"},
+    "source": "csv_fixture",
+    "collected_at": "2026-01-04T12:00:00+00:00"
+  }
+]

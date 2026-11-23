@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -48,6 +50,13 @@ def _clean_registry() -> None:
     clear()
 
 
+@pytest.fixture
+def mock_candidates_dir(tmp_path: Path) -> Path:
+    src = Path(__file__).resolve().parent / "fixtures" / "mock_candidates.json"
+    shutil.copy(src, tmp_path / "mock_candidates.json")
+    return tmp_path
+
+
 def test_route_orders_adapters_by_cost_ascending() -> None:
     register(MockSource())
     paid = PaidSpy()
@@ -68,8 +77,8 @@ def test_route_orders_adapters_by_cost_ascending() -> None:
     assert [a.name for a in ordered] == ["mock", "paid_spy"]
 
 
-def test_filter_runs_before_paid_search_enrichment() -> None:
-    mock = MockSource()
+def test_filter_runs_before_paid_search_enrichment(mock_candidates_dir: Path) -> None:
+    mock = MockSource(fixtures_dir=mock_candidates_dir)
     paid = PaidSpy()
     register(mock)
     register(paid)
@@ -107,8 +116,10 @@ def test_filter_runs_before_paid_search_enrichment() -> None:
     assert enriched[0].source == "paid_spy"
 
 
-def test_paid_search_not_invoked_when_everything_is_noise() -> None:
-    mock = MockSource()
+def test_paid_search_not_invoked_when_everything_is_noise(
+    mock_candidates_dir: Path,
+) -> None:
+    mock = MockSource(fixtures_dir=mock_candidates_dir)
     paid = PaidSpy()
     register(mock)
     register(paid)

@@ -109,6 +109,9 @@ DESCRIPTION_BY_CRITERION: dict[str, Callable[[Candidate], str | None]] = {
     "hiring": _yes_signal_phrase("hiring", "currently hiring"),
     "open_role_match": _hiring_roles,
     "community_member": _yes_signal_phrase("community_member", "active in the community"),
+    "segment_expansion_open": _yes_signal_phrase(
+        "segment_expansion_open", "open to segment expansion conversations"
+    ),
 }
 
 

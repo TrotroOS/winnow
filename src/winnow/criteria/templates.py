@@ -171,6 +171,38 @@ def _community(
     )
 
 
+def _segment_expansion(
+    situation: StartupSituation,
+) -> tuple[list[Criteria], Callable[[Candidate], bool]]:
+    return (
+        [
+            Criteria(
+                name="segment_expansion_open",
+                predicate=p.signal_is_yes("segment_expansion_open"),
+                cost=1,
+            ),
+            Criteria(
+                name="org_in_segment",
+                predicate=p.org_in_segment(situation.segment),
+                cost=2,
+            ),
+            Criteria(
+                name="decision_maker",
+                predicate=p.role_matches(
+                    ("founder", "ceo", "cto", "vp", "director", "head")
+                ),
+                cost=3,
+            ),
+            Criteria(
+                name="recent_activity",
+                predicate=p.has_signal_within(60),
+                cost=4,
+            ),
+        ],
+        reachable,
+    )
+
+
 TEMPLATES: dict[str, TemplateFn] = {
     "design_partners": _design_partners,
     "first_revenue": _first_revenue,
@@ -178,6 +210,7 @@ TEMPLATES: dict[str, TemplateFn] = {
     "investors": _investors,
     "hires": _hires,
     "community": _community,
+    "segment_expansion": _segment_expansion,
 }
 
 
