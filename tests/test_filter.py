@@ -51,6 +51,25 @@ def test_empty_criteria_all_reachable_are_possible(make_candidate) -> None:
     assert dropped == 0
 
 
+def test_short_circuit_skips_remaining_predicates(make_candidate) -> None:
+    call_order: list[str] = []
+
+    def pred(name: str, result: bool):
+        def _inner(_: Candidate) -> bool:
+            call_order.append(name)
+            return result
+
+        return _inner
+
+    candidate = make_candidate(contacts={"email": "x@y.z"})
+    criteria = [
+        Criteria(name="cheap_fail", predicate=pred("cheap", False), cost=1),
+        Criteria(name="expensive", predicate=pred("expensive", True), cost=100),
+    ]
+    assert evaluate(candidate, criteria) is False
+    assert call_order == ["cheap"]
+
+
 def test_predicate_order_respects_cost(make_candidate) -> None:
     order: list[str] = []
 
@@ -86,6 +105,15 @@ def test_short_circuit_skips_remaining_predicates(make_candidate) -> None:
     candidate = make_candidate()
     assert evaluate(candidate, criteria) is False
     assert calls == 0
+
+
+def test_reachability_keys_email_linkedin_dm(make_candidate) -> None:
+    assert reachable(make_candidate(contacts={"email": "a@b.co"}))
+    assert reachable(make_candidate(contacts={"linkedin": "https://linkedin.com/in/x"}))
+    assert reachable(make_candidate(contacts={"dm": "@handle"}))
+    assert not reachable(make_candidate(contacts={"email": "   "}))
+    assert not reachable(make_candidate(contacts={"phone": "+15551234567"}))
+    assert not reachable(make_candidate(contacts={}))
 
 
 def test_no_scoring_or_ranking_on_output(make_candidate) -> None:
