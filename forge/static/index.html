@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Winnow</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+        max-width: 42rem;
+        line-height: 1.5;
+      }
+      code {
+        background: #f4f5f7;
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+      }
+      .pill {
+        display: inline-block;
+        background: #dfe1e6;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Winnow</h1>
+    <p class="pill">BINARY ONLY — POSSIBLE or NOISE</p>
+    <p>
+      This Jira page is the <strong>Forge UI shell</strong>. Pipeline logic lives in the
+      repository <code>winnow/</code> Python package, not in Forge.
+    </p>
+    <p>
+      Point <code>WINNOW_API_BASE_URL</code> at <code>python -m winnow.http_server</code>
+      (see <code>FORGE.md</code>). Without it, Rovo actions return deterministic stubs.
+    </p>
+    <p>
+      Open Rovo chat and use the <strong>Winnow</strong> agent to describe a situation,
+      trigger a run, and read POSSIBLE count plus audit summary.
+    </p>
+  </body>
+</html>
