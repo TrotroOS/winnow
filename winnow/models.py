@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+
+
+@dataclass(frozen=True)
+class Situation:
+    situation_type: str
+    sector_hints: tuple[str, ...]
+    role_hints: tuple[str, ...]
+    geography: str | None
+    keywords: tuple[str, ...]
 
 
 @dataclass(frozen=True)

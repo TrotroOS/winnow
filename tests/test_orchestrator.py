@@ -28,7 +28,12 @@ def test_run_winnow_end_to_end_no_network(tmp_path) -> None:
         },
     ]
     adapter = FixtureSourceAdapter("fixture_primary", records)
-    cfg = WinnowConfig(spend_cap_cents=100, enrichment_api_key=None)
+    cfg = WinnowConfig(
+        spend_cap_cents=100,
+        enrichment_api_key=None,
+        csv_source_dir=None,
+        github_token=None,
+    )
     result = run_winnow(
         "launch",
         [adapter],
