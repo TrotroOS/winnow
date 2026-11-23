@@ -51,3 +51,6 @@ class RunResult:
     possible: tuple[Candidate, ...]
     noise_dropped: int
     outreach: OutreachSummary
+    enriched_count: int = 0
+    backlog_count: int = 0
+    spend_this_run: float = 0.0

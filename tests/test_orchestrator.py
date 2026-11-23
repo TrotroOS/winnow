@@ -101,12 +101,15 @@ def test_spend_cap_halts_enrichment_and_logs_backlog(tmp_path: Path) -> None:
             max_spend_per_run=0.0,
             max_spend_per_month=100.0,
             audit_log_path=audit_path,
+            spend_log_path=tmp_path / "spend.json",
             manual_approve=True,
         ),
     )
 
     assert len(result.possible) >= 1
     assert paid.calls == 0
+    assert result.backlog_count == len(result.possible)
+    assert result.spend_this_run == 0.0
 
     entry = json.loads(audit_path.read_text(encoding="utf-8").strip())
     assert entry["enrich_backlog_count"] == len(result.possible)
@@ -132,7 +135,11 @@ def test_empty_possible_zero_paid_adapter_calls(tmp_path: Path) -> None:
     ):
         result = run(
             _community_situation(),
-            RunConfig(audit_log_path=audit_path, manual_approve=True),
+            RunConfig(
+                audit_log_path=audit_path,
+                spend_log_path=tmp_path / "spend.json",
+                manual_approve=True,
+            ),
         )
 
     assert result.possible == ()
@@ -151,6 +158,7 @@ def test_audit_entry_records_every_stage(tmp_path: Path) -> None:
         RunConfig(
             max_spend_per_run=100.0,
             audit_log_path=audit_path,
+            spend_log_path=tmp_path / "spend.json",
             manual_approve=False,
         ),
     )
@@ -187,6 +195,7 @@ def test_manual_approve_skips_outreach_send(tmp_path: Path) -> None:
         _community_situation(),
         RunConfig(
             audit_log_path=audit_path,
+            spend_log_path=tmp_path / "spend.json",
             manual_approve=True,
             max_spend_per_run=0.0,
         ),

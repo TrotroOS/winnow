@@ -8,7 +8,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from winnow.budget import DEFAULT_SPEND_LOG, SpendTracker
 from winnow.criteria.builder import build_criteria, parse_situation
+from winnow.enrich import enrich
 from winnow.filter import apply_filter
 from winnow.models import Candidate, OutreachSummary, RunResult
 from winnow.normalize import dedupe, normalize
@@ -21,8 +23,8 @@ from winnow.sources.adapter import SourceAdapter
 class RunConfig:
     max_spend_per_run: float = 100.0
     max_spend_per_month: float = 1000.0
-    month_spent_so_far: float = 0.0
     audit_log_path: str | Path = "logs/runs.jsonl"
+    spend_log_path: str | Path = DEFAULT_SPEND_LOG
     search_queries: tuple[str, ...] = ()
     search_limit: int = 50
     enrich_limit: int = 10
@@ -30,33 +32,6 @@ class RunConfig:
     manual_approve: bool = False
     suppressed_candidate_ids: frozenset[str] = field(default_factory=frozenset)
     filter_now: datetime | None = None
-
-
-@dataclass
-class CostGovernor:
-    max_per_run: float
-    max_per_month: float
-    month_spent_before: float = 0.0
-    run_spent: float = 0.0
-
-    @property
-    def total_spent(self) -> float:
-        return self.month_spent_before + self.run_spent
-
-    def can_afford(self, amount: float) -> bool:
-        if amount < 0:
-            return False
-        if self.run_spent + amount > self.max_per_run:
-            return False
-        if self.total_spent + amount > self.max_per_month:
-            return False
-        return True
-
-    def charge(self, amount: float) -> bool:
-        if not self.can_afford(amount):
-            return False
-        self.run_spent += amount
-        return True
 
 
 def _default_queries(situation) -> list[str]:
@@ -80,6 +55,7 @@ def _candidate_to_raw(candidate: Candidate) -> dict[str, object]:
 def _normalize_item(item: object, source_name: str) -> Candidate:
     if isinstance(item, dict):
         return normalize(item, source_name)
+    assert isinstance(item, Candidate)
     return normalize(_candidate_to_raw(item), source_name)
 
 
@@ -106,10 +82,10 @@ def _append_audit(path: Path, entry: dict[str, object]) -> None:
 def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
     """Execute the Winnow pipeline end-to-end."""
     cfg = config or RunConfig()
-    governor = CostGovernor(
-        max_per_run=cfg.max_spend_per_run,
-        max_per_month=cfg.max_spend_per_month,
-        month_spent_before=cfg.month_spent_so_far,
+    budget = SpendTracker(
+        cfg.max_spend_per_run,
+        cfg.max_spend_per_month,
+        spend_log_path=Path(cfg.spend_log_path),
     )
 
     situation = parse_situation(situation_input)
@@ -118,7 +94,6 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
 
     adapters = route(situation, criteria)
     sources = tuple(a.name for a in adapters)
-    paid = [a for a in adapters if a.cost_per_call > 0]
 
     queries = list(cfg.search_queries) or _default_queries(situation)
 
@@ -135,35 +110,34 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         now=cfg.filter_now,
     )
 
-    enrich_backlog = 0
+    enriched_rows: list[Candidate] = []
+    backlog_count = 0
+    enriched_count = 0
+    enrich_noise = 0
     paid_search_calls = 0
 
-    if possible and paid:
-        enriched_rows: list[Candidate] = []
-        enrichment_stopped_for_cap = False
-        for adapter in paid:
-            cost = float(adapter.cost_per_call)
-            if not governor.can_afford(cost):
-                enrichment_stopped_for_cap = True
-                break
-            if not governor.charge(cost):
-                enrichment_stopped_for_cap = True
-                break
-            paid_search_calls += 1
-            for item in adapter.search(queries, cfg.enrich_limit):
-                enriched_rows.append(_normalize_item(item, adapter.name))
+    if possible:
+        enriched_rows, backlog_count, enrich_noise, paid_search_calls = enrich(
+            list(possible),
+            adapters,
+            criteria,
+            reachability,
+            budget,
+            queries=queries,
+            enrich_limit=cfg.enrich_limit,
+            now=cfg.filter_now,
+        )
 
-        if enrichment_stopped_for_cap or (paid and not enriched_rows and paid_search_calls == 0):
-            enrich_backlog = len(possible)
-        elif enriched_rows:
-            merged, _ = dedupe([*possible, *enriched_rows])
-            possible, extra_noise = apply_filter(
-                merged,
-                criteria,
-                reachability,
-                now=cfg.filter_now,
-            )
-            noise_dropped += extra_noise
+    if enriched_rows:
+        enriched_count = len(enriched_rows)
+        merged, _ = dedupe([*possible, *enriched_rows])
+        possible, extra_noise = apply_filter(
+            merged,
+            criteria,
+            reachability,
+            now=cfg.filter_now,
+        )
+        noise_dropped += extra_noise + enrich_noise
 
     outreach = run_outreach(
         possible,
@@ -186,10 +160,11 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         "possible_ids": list(possible_ids),
         "noise_dropped": noise_dropped,
         "dedupe_dropped": dedupe_dropped,
-        "enrich_backlog_count": enrich_backlog,
+        "enrich_backlog_count": backlog_count,
+        "enriched_count": enriched_count,
         "outreach": asdict(outreach),
-        "spend_run": governor.run_spent,
-        "spend_total_month": governor.total_spent,
+        "spend_run": budget.run_spent,
+        "spend_total_month": budget.month_spent,
         "paid_adapter_search_calls": paid_search_calls,
     }
     _append_audit(Path(cfg.audit_log_path), audit_entry)
@@ -201,4 +176,7 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         possible=tuple(possible),
         noise_dropped=noise_dropped,
         outreach=outreach,
+        enriched_count=enriched_count,
+        backlog_count=backlog_count,
+        spend_this_run=budget.run_spent,
     )
