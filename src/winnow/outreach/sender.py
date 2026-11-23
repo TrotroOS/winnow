@@ -14,6 +14,7 @@ from winnow.outreach.templates import TEMPLATE_VERSION, build_message
 from winnow.outreach.throttle import Throttle
 from winnow.outreach.guards import sends_halted
 from winnow.outreach.tracker import OutreachTracker
+from winnow.store import WinnowStore
 
 
 class Transport(Protocol):
@@ -50,6 +51,8 @@ class OutreachSender:
     throttle: Throttle
     tracker: OutreachTracker
     per_run_send_cap: int | None = None
+    store: WinnowStore | None = None
+    run_id: int | None = None
     _pending: dict[str, SendBatch] = field(default_factory=dict)
     _sent_this_run: int = field(default=0, init=False)
 
@@ -142,6 +145,14 @@ class OutreachSender:
                 template_version=message.template_version,
                 provider_message_id=provider_id,
             )
+            if self.store is not None:
+                self.store.record_send(
+                    candidate_id=message.candidate_id,
+                    run_id=self.run_id,
+                    channel=message.channel,
+                    template_version=message.template_version,
+                    status="sent",
+                )
             self._sent_this_run += 1
             sent += 1
         return OutreachSummary(

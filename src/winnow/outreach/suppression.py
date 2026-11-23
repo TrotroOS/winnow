@@ -3,24 +3,44 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from winnow.store import WinnowStore
 
 
 class SuppressionStore:
-    """In-memory suppression with optional append-only file backing (tests)."""
+    """In-memory, file-backed (tests), or SQLite store-backed suppression."""
 
-    def __init__(self, path: Path | None = None) -> None:
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        store: WinnowStore | None = None,
+    ) -> None:
         self._path = path
+        self._store = store
         self._contacted: set[str] = set()
-        if path and path.exists():
+        if store is not None:
+            self._contacted.update(store.suppression_ids())
+        elif path and path.exists():
             for line in path.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
                 if line:
                     self._contacted.add(line)
 
     def is_suppressed(self, candidate_id: str) -> bool:
+        if self._store is not None:
+            return candidate_id in self._store.suppression_ids()
         return candidate_id in self._contacted
 
     def mark_contacted(self, candidate_id: str) -> None:
+        if self._store is not None:
+            try:
+                self._store.set_candidate_status(candidate_id, "contacted")
+            except ValueError:
+                pass
+            return
         if candidate_id in self._contacted:
             return
         self._contacted.add(candidate_id)

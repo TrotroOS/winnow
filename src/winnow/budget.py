@@ -6,6 +6,10 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from winnow.store import WinnowStore
 
 DEFAULT_SPEND_LOG = Path("logs/spend.json")
 
@@ -19,13 +23,22 @@ class SpendTracker:
     max_spend_per_run: float
     max_spend_per_month: float
     spend_log_path: Path = DEFAULT_SPEND_LOG
+    store: WinnowStore | None = None
+    run_id: int | None = None
     run_spent: float = field(default=0.0, init=False)
     month_spent: float = field(default=0.0, init=False)
     _period: str = field(default="", init=False)
 
     def __post_init__(self) -> None:
         self._period = _current_period()
-        self.month_spent = _load_month_spent(self.spend_log_path, self._period)
+        if self.store is not None:
+            self.month_spent = self.store.month_spend(self._period)
+        else:
+            self.month_spent = _load_month_spent(self.spend_log_path, self._period)
+
+    @property
+    def period(self) -> str:
+        return self._period
 
     def remaining(self) -> tuple[float, float]:
         """Return (remaining_this_run, remaining_this_month) in currency units."""
@@ -55,7 +68,10 @@ class SpendTracker:
             )
         self.run_spent += cost
         self.month_spent += cost
-        _save_month_spent(self.spend_log_path, self._period, self.month_spent)
+        if self.store is not None:
+            self.store.record_spend(cost, self._period, self.run_id)
+        else:
+            _save_month_spent(self.spend_log_path, self._period, self.month_spent)
 
 
 def _current_period() -> str:

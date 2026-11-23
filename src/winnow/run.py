@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from winnow.budget import SpendTracker
+from winnow.store import WinnowStore, db_path
 from winnow.feedback import TemplateStats, emit_suggestions, suggest
 from winnow.criteria.builder import build_criteria, parse_situation
 from winnow.models import Candidate, RunResult
@@ -191,6 +192,12 @@ def execute(
     base_logs = logs_dir or Path("logs")
     spend_log = base_logs / "spend.json"
     audit_log = base_logs / "runs.jsonl"
+    sqlite_path = db_path() if logs_dir is None else (base_logs / "winnow.sqlite")
+    store = WinnowStore(sqlite_path)
+    store.migrate_legacy(
+        spend_json=spend_log,
+        suppression_files=(base_logs / "suppression.txt",),
+    )
     outreach_mode = str(raw.get("outreach_mode", "manual_approve"))
     manual_approve, guard_warning = resolve_manual_approve(
         outreach_mode,
@@ -206,6 +213,7 @@ def execute(
         audit_log_path=audit_log,
         manual_approve=manual_approve,
     )
+    run_cfg.store = store
 
     result = run(situation_input, run_cfg)
 
@@ -227,7 +235,7 @@ def execute(
     month_tracker = SpendTracker(
         run_cfg.max_spend_per_run,
         run_cfg.max_spend_per_month,
-        spend_log_path=spend_log,
+        store=store,
     )
     summary = format_run_summary(
         situation=situation_input,

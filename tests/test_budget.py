@@ -41,11 +41,14 @@ def test_remaining_reflects_caps(tmp_path: Path) -> None:
 
 
 def test_monthly_persistence_survives_new_tracker_instance(tmp_path: Path) -> None:
-    path = tmp_path / "spend.json"
-    first = SpendTracker(200.0, 2000.0, spend_log_path=path)
+    from winnow.store import WinnowStore
+
+    store = WinnowStore(tmp_path / "winnow.sqlite")
+    first = SpendTracker(200.0, 2000.0, store=store)
     first.record(42.5)
-    second = SpendTracker(200.0, 2000.0, spend_log_path=path)
+    second = SpendTracker(200.0, 2000.0, store=store)
     assert second.month_spent == pytest.approx(42.5)
     assert second.run_spent == 0.0
     _, month_left = second.remaining()
     assert month_left == pytest.approx(2000.0 - 42.5)
+    assert store.month_spend(first.period) == pytest.approx(42.5)

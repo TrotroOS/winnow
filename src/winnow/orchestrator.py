@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from winnow.budget import DEFAULT_SPEND_LOG, SpendTracker
+from winnow.store import WinnowStore
 from winnow.criteria.builder import build_criteria, parse_situation
 from winnow.enrich import enrich
 from winnow.filter import apply_filter
@@ -35,6 +36,7 @@ class RunConfig:
     dry_run: bool = False
     daily_cap: int = 50
     max_sends_per_run: int = 25
+    store: WinnowStore | None = None
 
 
 def _default_queries(situation) -> list[str]:
@@ -91,11 +93,9 @@ def _append_audit(path: Path, entry: dict[str, object]) -> None:
 def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
     """Execute the Winnow pipeline end-to-end."""
     cfg = config or RunConfig()
-    budget = SpendTracker(
-        cfg.max_spend_per_run,
-        cfg.max_spend_per_month,
-        spend_log_path=Path(cfg.spend_log_path),
-    )
+    store = cfg.store
+    criteria_version_id: int | None = None
+    run_db_id: int | None = None
 
     situation = parse_situation(situation_input)
     criteria, reachability, template_name = build_criteria(situation)
@@ -117,6 +117,14 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         criteria,
         reachability,
         now=cfg.filter_now,
+    )
+
+    budget = SpendTracker(
+        cfg.max_spend_per_run,
+        cfg.max_spend_per_month,
+        spend_log_path=Path(cfg.spend_log_path),
+        store=store,
+        run_id=run_db_id,
     )
 
     enriched_rows: list[Candidate] = []
@@ -150,6 +158,13 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         )
         noise_dropped += extra_noise + enrich_noise
 
+    if store is not None:
+        criteria_version_id = store.record_criteria_version(
+            template_name, criteria_names
+        )
+        for row in possible:
+            store.save_candidate(row, "possible")
+
     throttle_caps = {
         "email": cfg.daily_cap,
         "linkedin": cfg.daily_cap,
@@ -164,6 +179,8 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         suppressed_ids=cfg.suppressed_candidate_ids,
         throttle_caps=throttle_caps,
         per_run_send_cap=cfg.max_sends_per_run,
+        store=store,
+        run_id=run_db_id,
     )
 
     possible_ids = tuple(c.id for c in possible)
@@ -186,6 +203,15 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         "paid_adapter_search_calls": paid_search_calls,
     }
     _append_audit(Path(cfg.audit_log_path), audit_entry)
+
+    if store is not None and criteria_version_id is not None:
+        run_db_id = store.record_run(
+            criteria_version_id=criteria_version_id,
+            situation_type=template_name,
+            possible_count=len(possible),
+            noise_dropped=noise_dropped,
+            spend_run=budget.run_spent,
+        )
 
     return RunResult(
         situation_type=template_name,

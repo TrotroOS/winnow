@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from winnow.models import Candidate, Criteria, OutreachSummary
+from winnow.store import WinnowStore
 from winnow.outreach.sender import OutreachSender
 from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.throttle import Throttle
@@ -55,11 +56,15 @@ def run_outreach(
     transport: Transport | None = None,
     throttle_caps: dict[str, int] | None = None,
     per_run_send_cap: int | None = None,
+    store: WinnowStore | None = None,
+    run_id: int | None = None,
 ) -> OutreachSummary:
     """Stage POSSIBLE rows in batches; send immediately or hold for manual approval."""
     sender = OutreachSender(
         transport=transport or NoopTransport(),
-        suppression=SuppressionStore(),
+        suppression=SuppressionStore(store=store),
+        store=store,
+        run_id=run_id,
         throttle=Throttle(
             caps=throttle_caps
             or {"email": 10_000, "linkedin": 10_000, "dm": 10_000},
