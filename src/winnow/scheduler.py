@@ -200,7 +200,12 @@ def scheduled_job(
         base_logs = logs_dir or Path("logs")
         spend_log = base_logs / "spend.json"
         audit_log = base_logs / "runs.jsonl"
-        sqlite_path = db_path() if logs_dir is None else (base_logs / "winnow.sqlite")
+        if os.environ.get("WINNOW_DB_PATH", "").strip():
+            sqlite_path = db_path()
+        elif logs_dir is not None:
+            sqlite_path = base_logs / "winnow.sqlite"
+        else:
+            sqlite_path = db_path()
         store = WinnowStore(sqlite_path)
         store.migrate_legacy(
             spend_json=spend_log,

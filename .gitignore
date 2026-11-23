@@ -7,3 +7,6 @@ dist/
 build/
 *.egg
 logs/
+data/
+backups/
+.env

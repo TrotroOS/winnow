@@ -14,6 +14,9 @@ from winnow.models import Candidate
 
 DEFAULT_DB_PATH = Path("logs/winnow.sqlite")
 
+# Bump when DDL expectations change; healthcheck fails if DB meta lags after migrate.
+SCHEMA_REVISION = "1"
+
 SUPPRESSION_STATUSES = frozenset(
     {"contacted", "replied", "bounced", "opted_out", "opt_out"}
 )
@@ -143,6 +146,65 @@ class WinnowStore:
         self._ensure_candidate_columns()
         self._ensure_run_columns()
         self._ensure_criteria_version_columns()
+        self._set_meta("schema_revision", SCHEMA_REVISION)
+
+    def schema_revision(self) -> str | None:
+        return self._meta("schema_revision")
+
+    def schema_is_current(self) -> bool:
+        """True when ``schema_meta.schema_revision`` matches this code release."""
+        return self.schema_revision() == SCHEMA_REVISION
+
+    def required_candidate_columns(self) -> frozenset[str]:
+        return frozenset(
+            {
+                "id",
+                "name",
+                "org",
+                "name_norm",
+                "org_norm",
+                "status",
+                "last_seen",
+                "role",
+                "source",
+                "contacts_json",
+                "signals_json",
+                "backlog",
+                "bounce_attempts",
+                "suppression_hash",
+                "anonymized_at",
+            }
+        )
+
+    def verify_schema_integrity(self) -> None:
+        """Raise ``RuntimeError`` if expected tables/columns are missing."""
+        cur = self._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+        tables = {str(row[0]) for row in cur.fetchall()}
+        for table in (
+            "schema_meta",
+            "candidates",
+            "criteria_versions",
+            "runs",
+            "sends",
+            "spend",
+        ):
+            if table not in tables:
+                raise RuntimeError(f"missing table {table!r}")
+
+        cur = self._conn.execute("PRAGMA table_info(candidates)")
+        cols = {str(row[1]) for row in cur.fetchall()}
+        missing = self.required_candidate_columns() - cols
+        if missing:
+            raise RuntimeError(
+                f"candidates table behind migrations; missing columns: {sorted(missing)}"
+            )
+        if not self.schema_is_current():
+            raise RuntimeError(
+                "database schema_revision "
+                f"{self.schema_revision()!r} != expected {SCHEMA_REVISION!r}"
+            )
 
     def _ensure_criteria_version_columns(self) -> None:
         cur = self._conn.execute("PRAGMA table_info(criteria_versions)")

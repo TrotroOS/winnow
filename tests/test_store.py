@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from winnow.models import Candidate
-from winnow.store import WinnowStore, db_path
+from winnow.store import SCHEMA_REVISION, WinnowStore, db_path
 
 
 def _candidate(
@@ -99,3 +99,13 @@ def test_migration_idempotent(tmp_path: Path) -> None:
 
 def test_default_db_path() -> None:
     assert db_path() == Path("logs/winnow.sqlite")
+
+
+def test_schema_revision_recorded_and_verifiable(tmp_path: Path) -> None:
+    store = WinnowStore(tmp_path / "winnow.sqlite")
+    assert store.schema_revision() == SCHEMA_REVISION
+    store.verify_schema_integrity()
+    store._set_meta("schema_revision", "0")
+    with pytest.raises(RuntimeError, match="schema_revision"):
+        store.verify_schema_integrity()
+    store.close()

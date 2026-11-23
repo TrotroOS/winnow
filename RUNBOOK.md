@@ -193,3 +193,101 @@ python -m pytest -v
 python -m winnow.privacy export --candidate-id <id>
 python -m winnow.privacy erase --candidate-id <id>
 ```
+
+---
+
+## Unattended deploy (Docker)
+
+### Prerequisites
+
+1. Copy `.env.example` → `.env` and set transport keys only if you will run `send-batch --confirm`.
+2. Edit `config.yaml` (or mount your own) — set `physical_address`, `sender_identity`, `unsubscribe_url`, and `email_from` before live email.
+3. Create host dirs (compose bind-mounts): `mkdir -p data logs backups`.
+
+### Deploy
+
+```bash
+cp .env.example .env
+docker compose build
+docker compose up -d scheduler
+docker compose ps
+docker compose logs -f scheduler
+```
+
+Default service runs `winnow.scheduler` (daily dry-run + batch staging). It **never** auto-sends transport traffic.
+
+### Manual one-shots in Docker
+
+```bash
+# One scheduler cycle now (same as host `schedule --once`)
+docker compose --profile manual run --rm run-once
+
+# Safe pipeline dry-run
+docker compose --profile manual run --rm dry-run
+
+# Reviewed batch send (after copying batch file into logs volume)
+docker compose run --rm scheduler \
+  python -m winnow.run send-batch /logs/batch_<timestamp>.json --confirm
+```
+
+### Health
+
+```bash
+docker compose exec scheduler python -m winnow.healthcheck
+```
+
+Exits non-zero if `/data` or `/logs` is not writable, or SQLite schema is behind this image (`schema_meta.schema_revision`).
+
+### Backup and restore
+
+Host paths match compose volumes (`data/`, `logs/`, `backups/`):
+
+```bash
+make backup WINNOW_DB_PATH=data/winnow.sqlite BACKUP_RETENTION_DAYS=30
+ls backups/
+```
+
+Restore (stop scheduler first):
+
+```bash
+docker compose stop scheduler
+cp backups/winnow_<timestamp>.db data/winnow.sqlite
+docker compose start scheduler
+```
+
+Verify with dry-run:
+
+```bash
+docker compose --profile manual run --rm dry-run
+```
+
+### Rotate secrets
+
+1. Set `WINNOW_HALT=1` in `.env` and `docker compose up -d scheduler` (or export in shell).
+2. Update keys in `.env` (ESP, LinkedIn, sources).
+3. `docker compose up -d --force-recreate scheduler`
+4. Confirm halt in logs: `docker compose logs scheduler | tail`
+5. Clear `WINNOW_HALT` and recreate again before live send.
+
+Never bake secrets into the image; only `.env` / orchestrator secret stores.
+
+### Make targets (host)
+
+```bash
+make docker-build
+make docker-up
+make docker-once
+make docker-dry-run
+make backup
+make test
+```
+
+### Operator loops in Docker
+
+| Action | Command |
+|--------|---------|
+| Dry-run | `docker compose --profile manual run --rm dry-run` |
+| Confirm send | `docker compose run --rm scheduler python -m winnow.run send-batch /logs/batch_*.json --confirm` |
+| Halt all sends | Set `WINNOW_HALT=1` in `.env`, recreate scheduler |
+| Report / metrics | `docker compose run --rm scheduler python -m winnow.report` (when metrics enabled) |
+| Scheduler once | `make docker-once` or `run-once` service |
