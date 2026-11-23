@@ -14,7 +14,18 @@ segment: devtools
 channel: email
 source: mock
 daily_cap: 25
+# Domain warm-up (operator tuning refs — not candidate scores):
+warmup_start_daily_cap: 5
+warmup_step: 5
+warmup_start_date: "2026-01-01"
+per_run_send_cap: 25
 
 max_spend_per_run: 5
 max_spend_per_month: 100
 outreach_mode: manual_approve
+
+# Email transport (set in env for live send-batch --confirm only):
+# WINNOW_EMAIL_PROVIDER: sendgrid|ses
+# SENDGRID_API_KEY / AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
+email_from: "outreach@example.com"
+unsubscribe_url: "https://example.com/unsubscribe"

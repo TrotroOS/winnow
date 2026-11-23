@@ -13,15 +13,27 @@ class OutreachRecord:
     candidate_id: str
     template_version: str
     status: OutreachStatus
+    provider_message_id: str | None = None
 
 
 @dataclass
 class OutreachTracker:
     records: list[OutreachRecord] = field(default_factory=list)
 
-    def record_sent(self, candidate_id: str, *, template_version: str) -> None:
+    def record_sent(
+        self,
+        candidate_id: str,
+        *,
+        template_version: str,
+        provider_message_id: str | None = None,
+    ) -> None:
         self.records.append(
-            OutreachRecord(candidate_id, template_version, "sent")
+            OutreachRecord(
+                candidate_id,
+                template_version,
+                "sent",
+                provider_message_id=provider_message_id,
+            )
         )
 
     def record_replied(self, candidate_id: str, *, template_version: str) -> None:

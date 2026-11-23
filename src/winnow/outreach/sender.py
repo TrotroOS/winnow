@@ -23,7 +23,7 @@ class Transport(Protocol):
         body: str,
         *,
         candidate_id: str,
-    ) -> None: ...
+    ) -> str: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +48,9 @@ class OutreachSender:
     suppression: SuppressionStore
     throttle: Throttle
     tracker: OutreachTracker
+    per_run_send_cap: int | None = None
     _pending: dict[str, SendBatch] = field(default_factory=dict)
+    _sent_this_run: int = field(default=0, init=False)
 
     def build_batch(
         self,
@@ -93,34 +95,52 @@ class OutreachSender:
             raise KeyError(f"unknown batch {batch_id!r}") from exc
         return self._deliver(batch)
 
+    def deliver_batch(self, batch: SendBatch) -> OutreachSummary:
+        """Send a loaded batch (e.g. from ``logs/batch_*.json``)."""
+        return self._deliver(batch)
+
     def _deliver(self, batch: SendBatch) -> OutreachSummary:
         sent = 0
         suppressed = 0
         skipped = 0
+        bounced = 0
         for message in batch.messages:
             if self.suppression.is_suppressed(message.candidate_id):
                 suppressed += 1
                 continue
+            if self.per_run_send_cap is not None and self._sent_this_run >= self.per_run_send_cap:
+                skipped += 1
+                continue
             if not self.throttle.allow(message.channel):
                 skipped += 1
                 continue
-            self.transport.send(
-                message.channel,
-                message.recipient,
-                message.body,
-                candidate_id=message.candidate_id,
-            )
+            try:
+                provider_id = self.transport.send(
+                    message.channel,
+                    message.recipient,
+                    message.body,
+                    candidate_id=message.candidate_id,
+                )
+            except Exception:
+                self.tracker.record_bounced(
+                    message.candidate_id,
+                    template_version=message.template_version,
+                )
+                bounced += 1
+                continue
             self.suppression.mark_contacted(message.candidate_id)
             self.throttle.record(message.channel)
             self.tracker.record_sent(
                 message.candidate_id,
                 template_version=message.template_version,
+                provider_message_id=provider_id,
             )
+            self._sent_this_run += 1
             sent += 1
         return OutreachSummary(
             sent=sent,
             replied=0,
-            bounced=0,
+            bounced=bounced,
             suppressed=suppressed,
             skipped=skipped,
         )

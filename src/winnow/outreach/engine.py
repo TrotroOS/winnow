@@ -33,8 +33,9 @@ class NoopTransport:
         body: str,
         *,
         candidate_id: str,
-    ) -> None:
+    ) -> str:
         del channel, recipient, body, candidate_id
+        return "noop"
 
 
 def _chunked(rows: Sequence[Candidate], batch_size: int) -> list[Sequence[Candidate]]:

@@ -141,7 +141,7 @@ def test_printed_summary_contains_required_fields(
 
     with patch("winnow.run._register_source", _reg):
         code = main(
-            ["--config", str(config), "--limit", "5", "--dry-run"],
+            ["run", "--config", str(config), "--limit", "5", "--dry-run"],
         )
 
     assert code == 0
@@ -169,6 +169,7 @@ def test_manual_approve_never_calls_transport(tmp_path: Path) -> None:
 
         def send(self, channel, recipient, body, *, candidate_id):
             self.calls += 1
+            return "spy"
 
     config = _community_yaml(tmp_path)
     free = ManyFixture(rows=[_community_row(0)])

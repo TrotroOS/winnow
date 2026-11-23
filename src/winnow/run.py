@@ -13,11 +13,13 @@ from winnow.budget import SpendTracker
 from winnow.criteria.builder import build_criteria, parse_situation
 from winnow.models import Candidate, RunResult
 from winnow.orchestrator import RunConfig, run
+from winnow.outreach.batch_send import SendBatchConfig, send_batch
 from winnow.outreach.engine import NoopTransport
 from winnow.outreach.sender import OutreachSender
 from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.throttle import Throttle
 from winnow.outreach.tracker import OutreachTracker
+from winnow.outreach.warmup import effective_daily_cap
 from winnow.sources.mock import MockSource
 from winnow.sources.registry import clear, register
 
@@ -67,7 +69,12 @@ def _run_config_from_yaml(
 ) -> RunConfig:
     outreach_mode = str(raw.get("outreach_mode", "manual_approve")).strip().lower()
     manual = outreach_mode in {"manual_approve", "manual", "approve"}
-    daily_cap = int(raw.get("daily_cap", 25))
+    daily_cap = effective_daily_cap(
+        ceiling=int(raw.get("daily_cap", 25)),
+        warmup_start_daily_cap=int(raw.get("warmup_start_daily_cap", 5)),
+        warmup_step=int(raw.get("warmup_step", 5)),
+        warmup_start_date=raw.get("warmup_start_date"),
+    )
     search_limit = int(limit if limit is not None else raw.get("search_limit", 50))
     return RunConfig(
         max_spend_per_run=float(raw.get("max_spend_per_run", 5)),
@@ -201,24 +208,88 @@ def execute(
     return result, summary
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run Winnow pipeline from YAML config")
-    parser.add_argument("--config", type=Path, required=True, help="Path to config.yaml")
-    parser.add_argument("--limit", type=int, default=None, help="Hard cap on collected candidates")
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Filter and account for enrichment; no paid adapter calls",
+def _send_batch_config_from_yaml(raw: dict) -> SendBatchConfig:
+    return SendBatchConfig(
+        daily_cap=effective_daily_cap(
+            ceiling=int(raw.get("daily_cap", 25)),
+            warmup_start_daily_cap=int(raw.get("warmup_start_daily_cap", 5)),
+            warmup_step=int(raw.get("warmup_step", 5)),
+            warmup_start_date=raw.get("warmup_start_date"),
+        ),
+        per_run_send_cap=int(raw.get("per_run_send_cap", raw.get("daily_cap", 25))),
+        warmup_start_daily_cap=int(raw.get("warmup_start_daily_cap", 5)),
+        warmup_step=int(raw.get("warmup_step", 5)),
+        warmup_start_date=raw.get("warmup_start_date"),
+        from_address=str(raw.get("email_from", "outreach@example.com")),
+        unsubscribe_url=str(raw.get("unsubscribe_url", "https://example.com/unsubscribe")),
     )
-    args = parser.parse_args(argv)
 
+
+def cmd_send_batch(args: argparse.Namespace) -> int:
+    config_path = args.config
+    raw: dict = {}
+    if config_path and config_path.is_file():
+        raw = _load_yaml(config_path)
+    elif config_path and not config_path.is_file():
+        print(f"config not found: {config_path}", file=sys.stderr)
+        return 1
+
+    if not args.batch_path.is_file():
+        print(f"batch not found: {args.batch_path}", file=sys.stderr)
+        return 1
+
+    summary = send_batch(
+        args.batch_path,
+        confirm=args.confirm,
+        config=_send_batch_config_from_yaml(raw),
+    )
+    print(
+        f"sent={summary.sent} skipped={summary.skipped} "
+        f"suppressed={summary.suppressed} bounced={summary.bounced}"
+    )
+    return 0
+
+
+def cmd_run(args: argparse.Namespace) -> int:
     if not args.config.is_file():
         print(f"config not found: {args.config}", file=sys.stderr)
         return 1
-
     _, summary = execute(args.config, limit=args.limit, dry_run=args.dry_run)
     print(summary)
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(argv or sys.argv[1:])
+    if argv and argv[0] not in {"run", "send-batch"}:
+        argv = ["run", *argv]
+
+    parser = argparse.ArgumentParser(description="Winnow CLI")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    run_parser = sub.add_parser("run", help="Run pipeline from YAML config")
+    run_parser.add_argument("--config", type=Path, required=True)
+    run_parser.add_argument("--limit", type=int, default=None)
+    run_parser.add_argument("--dry-run", action="store_true")
+    run_parser.set_defaults(_handler=cmd_run)
+
+    send_parser = sub.add_parser("send-batch", help="Deliver a staged outreach batch")
+    send_parser.add_argument("batch_path", type=Path)
+    send_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Required to perform sends; without it nothing is delivered",
+    )
+    send_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config.yaml"),
+        help="Config for caps and email settings (no secrets in file)",
+    )
+    send_parser.set_defaults(_handler=cmd_send_batch)
+
+    args = parser.parse_args(argv)
+    return args._handler(args)
 
 
 if __name__ == "__main__":

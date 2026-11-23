@@ -28,8 +28,9 @@ class SpyTransport:
         body: str,
         *,
         candidate_id: str,
-    ) -> None:
+    ) -> str:
         self.calls.append((candidate_id, channel, recipient, body))
+        return f"spy-{candidate_id}"
 
 
 def _community_situation_data() -> dict:
