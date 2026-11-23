@@ -1,0 +1,20 @@
+# Safe defaults for a first live run (no secrets). Uses mock fixtures only.
+
+situation:
+  situation_type: community
+  stage: seed
+  product: Winnow
+  goal: grow community
+  constraint: time
+  segment: devtools
+  channels:
+    - email
+
+segment: devtools
+channel: email
+source: mock
+daily_cap: 25
+
+max_spend_per_run: 5
+max_spend_per_month: 100
+outreach_mode: manual_approve

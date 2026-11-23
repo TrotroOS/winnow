@@ -52,13 +52,15 @@ def run_outreach(
     manual_approve: bool,
     suppressed_ids: frozenset[str] = frozenset(),
     transport: Transport | None = None,
+    throttle_caps: dict[str, int] | None = None,
 ) -> OutreachSummary:
     """Stage POSSIBLE rows in batches; send immediately or hold for manual approval."""
     sender = OutreachSender(
         transport=transport or NoopTransport(),
         suppression=SuppressionStore(),
         throttle=Throttle(
-            caps={"email": 10_000, "linkedin": 10_000, "dm": 10_000},
+            caps=throttle_caps
+            or {"email": 10_000, "linkedin": 10_000, "dm": 10_000},
         ),
         tracker=OutreachTracker(),
     )

@@ -11,7 +11,8 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+cli = ["pyyaml>=6.0"]
+dev = ["pytest>=8.0", "pyyaml>=6.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

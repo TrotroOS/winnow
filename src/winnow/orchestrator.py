@@ -32,6 +32,8 @@ class RunConfig:
     manual_approve: bool = False
     suppressed_candidate_ids: frozenset[str] = field(default_factory=frozenset)
     filter_now: datetime | None = None
+    dry_run: bool = False
+    daily_cap: int = 50
 
 
 def _default_queries(situation) -> list[str]:
@@ -65,11 +67,17 @@ def _collect_free(
     limit: int,
 ) -> list[Candidate]:
     collected: list[Candidate] = []
+    remaining = max(0, limit)
     for adapter in adapters:
-        if adapter.cost_per_call > 0:
+        if adapter.cost_per_call > 0 or remaining <= 0:
             continue
-        for item in adapter.search(queries, limit):
+        for item in adapter.search(queries, remaining):
             collected.append(_normalize_item(item, adapter.name))
+            remaining -= 1
+            if remaining <= 0:
+                break
+        if remaining <= 0:
+            break
     return collected
 
 
@@ -116,7 +124,7 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
     enrich_noise = 0
     paid_search_calls = 0
 
-    if possible:
+    if possible and not cfg.dry_run:
         enriched_rows, backlog_count, enrich_noise, paid_search_calls = enrich(
             list(possible),
             adapters,
@@ -127,6 +135,8 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
             enrich_limit=cfg.enrich_limit,
             now=cfg.filter_now,
         )
+    elif possible and cfg.dry_run and any(a.cost_per_call > 0 for a in adapters):
+        backlog_count = len(possible)
 
     if enriched_rows:
         enriched_count = len(enriched_rows)
@@ -139,6 +149,11 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         )
         noise_dropped += extra_noise + enrich_noise
 
+    throttle_caps = {
+        "email": cfg.daily_cap,
+        "linkedin": cfg.daily_cap,
+        "dm": cfg.daily_cap,
+    }
     outreach = run_outreach(
         possible,
         situation_type=template_name,
@@ -146,6 +161,7 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         batch_size=cfg.outreach_batch_size,
         manual_approve=cfg.manual_approve,
         suppressed_ids=cfg.suppressed_candidate_ids,
+        throttle_caps=throttle_caps,
     )
 
     possible_ids = tuple(c.id for c in possible)
