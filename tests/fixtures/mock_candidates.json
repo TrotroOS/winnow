@@ -1,0 +1,22 @@
+[
+  {
+    "id": "mock-noise-1",
+    "name": "No Contact Pat",
+    "org": "Quiet Co",
+    "role": "Founder",
+    "signals": {"segment": "b2b"},
+    "contacts": {},
+    "source": "mock",
+    "collected_at": "2026-01-02T12:00:00+00:00"
+  },
+  {
+    "id": "mock-possible-1",
+    "name": "Reachable Riley",
+    "org": "Signal Inc",
+    "role": "CTO",
+    "signals": {"segment": "b2b", "tier": "yes"},
+    "contacts": {"email": "riley@signal.inc"},
+    "source": "mock",
+    "collected_at": "2026-01-01T08:00:00+00:00"
+  }
+]
