@@ -21,6 +21,7 @@ class Candidate:
 class Criteria:
     name: str
     predicate: Callable[[Candidate], bool]
+    cost: int = 0  # execution order only; never used for weighting or scores
 
 
 @dataclass(frozen=True, slots=True)
