@@ -40,6 +40,26 @@
     border-radius: 0.25em;
     background: rgba(127, 127, 127, 0.15);
   }
+  section.demo {
+    margin-top: 2rem;
+    padding: 1rem 1.1rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    font-size: 0.92rem;
+  }
+  section.demo h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+  .demo dl { margin: 0.5rem 0; }
+  .demo dt { font-weight: 600; margin-top: 0.75rem; }
+  .demo dd { margin: 0.25rem 0 0 0; color: var(--muted); }
+  .demo ul.compact { margin: 0.35rem 0; font-size: 0.88rem; }
+  .preview {
+    white-space: pre-wrap;
+    font-size: 0.88rem;
+    padding: 0.75rem;
+    border-radius: 0.35rem;
+    background: rgba(127, 127, 127, 0.12);
+    margin-top: 0.5rem;
+  }
   </style>
 </head>
 <body>
@@ -62,8 +82,45 @@
     <li>Docker: <code>docker compose --profile manual run --rm dry-run</code> (see RUNBOOK)</li>
   </ul>
 
+  <section class="demo" aria-labelledby="demo-heading">
+    <h2 id="demo-heading">Demo snapshot (mock fixtures)</h2>
+    <p class="muted">
+      Frozen output from <code>python3 scripts/demo.py</code> on
+      <code>first_revenue</code> / independent coffee shops — not live data.
+      Re-run locally for a fresh batch under <code>logs/</code>.
+    </p>
+    <dl>
+      <dt>Situation</dt>
+      <dd>first_revenue · POS for indie cafes</dd>
+      <dt>Criteria</dt>
+      <dd><code>revenue_ready</code>, <code>recent_activity</code>, <code>decision_maker</code> + reachability gate</dd>
+      <dt>POSSIBLE (12)</dt>
+      <dd>
+        <ul class="compact">
+          <li>Jordan Pike · Willow Street Coffee · Owner</li>
+          <li>Sam Ortiz · Daily Grind Roasters · Founder</li>
+          <li>… 10 more decision-makers with email, LinkedIn, or DM</li>
+        </ul>
+      </dd>
+      <dt>NOISE dropped (10)</dt>
+      <dd>
+        By predicate: reachability 3 · revenue_ready 2 · recent_activity 3 · decision_maker 2
+        (plus 2 duplicates removed before filter)
+      </dd>
+      <dt>Spend</dt>
+      <dd>$0.00 — no paid search or enrich in the demo path</dd>
+      <dt>Batch</dt>
+      <dd>12 messages staged, <strong>manual approve</strong>, FAKE transport (nothing sent)</dd>
+    </dl>
+    <p><strong>Message preview (first POSSIBLE)</strong></p>
+    <div class="preview">Hi Jordan Pike,
+
+At Willow Street Coffee, ready to adopt for revenue caught my eye. Would you be open to seeing how we might help you ship faster?</div>
+  </section>
+
   <p class="muted" style="margin-top:2rem;">
-    This page is a static landing surface only. The scheduler, store, and sends stay local.
+    Vercel hosts this page only. Scheduler, SQLite store, filter, and sends run on your machine or Docker.
+    See <a href="https://github.com/TrotroOS/winnow">github.com/TrotroOS/winnow</a>.
   </p>
 </body>
 </html>
