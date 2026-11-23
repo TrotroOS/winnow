@@ -35,4 +35,10 @@ outreach_mode: manual_approve
 # WINNOW_EMAIL_PROVIDER: sendgrid|ses
 # SENDGRID_API_KEY / AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
 email_from: "outreach@example.com"
-unsubscribe_url: "https://example.com/unsubscribe"
+unsubscribe_url: "https://example.com/unsubscribe?c={candidate_id}"
+sender_identity: "Winnow Outreach"
+physical_address: "123 Example St, Example City, EX 00000"
+tracking_pixel_enabled: false
+# tracking_pixel_url: "https://example.com/pixel"
+max_per_hour_per_recipient_domain: 20
+retention_inactive_days: 365

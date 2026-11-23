@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from winnow.models import Candidate
 
@@ -109,6 +111,22 @@ class WinnowStore:
             );
             """
         )
+        self._conn.commit()
+        self._ensure_candidate_columns()
+
+    def _ensure_candidate_columns(self) -> None:
+        cur = self._conn.execute("PRAGMA table_info(candidates)")
+        cols = {str(row[1]) for row in cur.fetchall()}
+        additions = {
+            "bounce_attempts": "INTEGER NOT NULL DEFAULT 0",
+            "suppression_hash": "TEXT",
+            "anonymized_at": "TEXT",
+        }
+        for name, typedef in additions.items():
+            if name not in cols:
+                self._conn.execute(
+                    f"ALTER TABLE candidates ADD COLUMN {name} {typedef}"
+                )
         self._conn.commit()
 
     def save_candidate(self, candidate: Candidate, status: str) -> str:
@@ -357,3 +375,144 @@ class WinnowStore:
             self._conn.commit()
             path.unlink(missing_ok=True)
             self._set_meta(flag, "done")
+
+    def get_candidate_row(self, candidate_id: str) -> dict[str, Any] | None:
+        cur = self._conn.execute(
+            "SELECT * FROM candidates WHERE id = ?", (candidate_id,)
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def increment_bounce_attempts(self, candidate_id: str) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        self._conn.execute(
+            """
+            UPDATE candidates
+            SET bounce_attempts = bounce_attempts + 1, last_seen = ?
+            WHERE id = ?
+            """,
+            (now, candidate_id),
+        )
+        self._conn.commit()
+        cur = self._conn.execute(
+            "SELECT bounce_attempts FROM candidates WHERE id = ?",
+            (candidate_id,),
+        )
+        row = cur.fetchone()
+        return int(row[0]) if row else 0
+
+    def _hash_for_suppression(self, candidate_id: str) -> str:
+        row = self.get_candidate_row(candidate_id)
+        material = candidate_id
+        if row:
+            contacts = json.loads(row.get("contacts_json") or "{}")
+            email = str(contacts.get("email", "")).strip().lower()
+            if email:
+                material = email
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+    def ensure_suppression_hash(self, candidate_id: str) -> str:
+        digest = self._hash_for_suppression(candidate_id)
+        self._conn.execute(
+            "UPDATE candidates SET suppression_hash = ? WHERE id = ?",
+            (digest, candidate_id),
+        )
+        self._conn.commit()
+        return digest
+
+    def erase_candidate_pii(self, candidate_id: str) -> None:
+        row = self.get_candidate_row(candidate_id)
+        if row is None:
+            raise KeyError(f"unknown candidate {candidate_id!r}")
+        digest = row.get("suppression_hash") or self._hash_for_suppression(
+            candidate_id
+        )
+        now = datetime.now(timezone.utc).isoformat()
+        status = str(row["status"])
+        if status not in SUPPRESSION_STATUSES:
+            status = "opted_out"
+        self._conn.execute(
+            """
+            UPDATE candidates SET
+                name = ?, org = ?, role = ?, source = ?,
+                contacts_json = ?, signals_json = ?,
+                name_norm = ?, org_norm = ?,
+                status = ?, suppression_hash = ?, anonymized_at = ?
+            WHERE id = ?
+            """,
+            (
+                "[erased]",
+                "",
+                "",
+                "",
+                "{}",
+                "{}",
+                _normalize_key("[erased]"),
+                "",
+                status,
+                digest,
+                now,
+                candidate_id,
+            ),
+        )
+        self._conn.commit()
+
+    def anonymize_stale_candidates(
+        self,
+        inactive_days: int,
+        *,
+        now: datetime | None = None,
+    ) -> int:
+        """Anonymize rows with no interaction since ``inactive_days`` ago."""
+        if inactive_days < 1:
+            return 0
+        when = now or datetime.now(timezone.utc)
+        cutoff = (when - timedelta(days=inactive_days)).isoformat()
+        cur = self._conn.execute(
+            """
+            SELECT id FROM candidates
+            WHERE name != '[erased]'
+              AND name != '[anonymized]'
+              AND status IN ('possible', 'contacted')
+              AND last_seen < ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM sends s
+                  WHERE s.candidate_id = candidates.id
+                    AND s.created_at >= ?
+              )
+            """,
+            (cutoff, cutoff),
+        )
+        ids = [str(row["id"]) for row in cur.fetchall()]
+        for cid in ids:
+            row = self.get_candidate_row(cid)
+            if row is None:
+                continue
+            digest = row.get("suppression_hash") or self._hash_for_suppression(cid)
+            stamped = when.isoformat()
+            self._conn.execute(
+                """
+                UPDATE candidates SET
+                    name = ?, org = ?, role = ?,
+                    contacts_json = ?, signals_json = ?,
+                    name_norm = ?, org_norm = ?,
+                    suppression_hash = ?, anonymized_at = ?
+                WHERE id = ?
+                """,
+                (
+                    "[anonymized]",
+                    "[anonymized]",
+                    "",
+                    "{}",
+                    "{}",
+                    _normalize_key("[anonymized]"),
+                    _normalize_key("[anonymized]"),
+                    digest,
+                    stamped,
+                    cid,
+                ),
+            )
+        self._conn.commit()
+        return len(ids)

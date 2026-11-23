@@ -1,0 +1,2 @@
+{"ts": "2026-11-23T23:01:46.873329+00:00", "suggestion": "SUGGESTION for 'community': POSSIBLE list (1) is below operator bound (3). Loosen predicate 'recent_activity' (relax bool rule \u2014 no weights).", "template": "community"}
+{"ts": "2026-11-23T23:01:50.382478+00:00", "suggestion": "SUGGESTION for 'community': POSSIBLE list (1) is below operator bound (3). Loosen predicate 'recent_activity' (relax bool rule \u2014 no weights).", "template": "community"}

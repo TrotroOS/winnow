@@ -49,5 +49,25 @@ class SuppressionStore:
             with self._path.open("a", encoding="utf-8") as handle:
                 handle.write(f"{candidate_id}\n")
 
+    def mark_bounced(self, candidate_id: str) -> None:
+        if self._store is not None:
+            try:
+                self._store.set_candidate_status(candidate_id, "bounced")
+                self._store.ensure_suppression_hash(candidate_id)
+            except ValueError:
+                pass
+            return
+        self._contacted.add(candidate_id)
+
+    def mark_opted_out(self, candidate_id: str) -> None:
+        if self._store is not None:
+            try:
+                self._store.set_candidate_status(candidate_id, "opted_out")
+                self._store.ensure_suppression_hash(candidate_id)
+            except ValueError:
+                pass
+            return
+        self._contacted.add(candidate_id)
+
     def clear(self) -> None:
         self._contacted.clear()

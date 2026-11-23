@@ -17,9 +17,9 @@ from winnow.outreach.templates import build_message
 from winnow.outreach.throttle import Throttle
 from winnow.outreach.tracker import OutreachTracker
 from winnow.outreach.transport_email import (
-    OPT_OUT_LINE,
     EmailDeliveryError,
     EmailTransport,
+    build_compliance_footer,
     email_provider_from_env,
 )
 
@@ -34,15 +34,24 @@ class FakeESP:
         self,
         to: str,
         subject: str,
-        body: str,
+        body_plain: str,
         *,
+        body_html: str | None = None,
         headers: dict[str, str],
     ) -> str:
         if to in self.fail_for:
             raise EmailDeliveryError("bounce")
         msg_id = f"msg-{self.next_id}"
         self.next_id += 1
-        self.sends.append({"to": to, "subject": subject, "body": body, "headers": dict(headers)})
+        self.sends.append(
+            {
+                "to": to,
+                "subject": subject,
+                "body": body_plain,
+                "body_html": body_html,
+                "headers": dict(headers),
+            }
+        )
         return msg_id
 
 
@@ -96,7 +105,13 @@ def community_batch(tmp_path: Path) -> Path:
 
 def test_confirm_missing_zero_sends(community_batch: Path) -> None:
     esp = FakeESP()
-    transport = EmailTransport(esp, "from@test", "https://x/unsub")
+    transport = EmailTransport(
+        esp,
+        "from@test",
+        "https://x/unsub?c={candidate_id}",
+        physical_address="1 Test Way",
+        sender_identity="Test Co",
+    )
     summary = send_batch(
         community_batch,
         confirm=False,
@@ -109,7 +124,13 @@ def test_confirm_missing_zero_sends(community_batch: Path) -> None:
 
 def test_suppression_blocks_repeat_send(community_batch: Path) -> None:
     esp = FakeESP()
-    transport = EmailTransport(esp, "from@test", "https://x/unsub")
+    transport = EmailTransport(
+        esp,
+        "from@test",
+        "https://x/unsub?c={candidate_id}",
+        physical_address="1 Test Way",
+        sender_identity="Test Co",
+    )
     config = SendBatchConfig(daily_cap=10, per_run_send_cap=10, throttle_day=date(2026, 1, 1))
     suppression = SuppressionStore()
     suppression.mark_contacted("c-1")
@@ -168,7 +189,13 @@ def test_daily_cap_enforced(community_batch: Path, tmp_path: Path) -> None:
         encoding="utf-8",
     )
     esp = FakeESP()
-    transport = EmailTransport(esp, "from@test", "https://x/unsub")
+    transport = EmailTransport(
+        esp,
+        "from@test",
+        "https://x/unsub?c={candidate_id}",
+        physical_address="1 Test Way",
+        sender_identity="Test Co",
+    )
     summary = send_batch(
         path,
         confirm=True,
@@ -180,18 +207,31 @@ def test_daily_cap_enforced(community_batch: Path, tmp_path: Path) -> None:
     assert len(esp.sends) == 2
 
 
-def test_every_message_has_opt_out_line(community_batch: Path) -> None:
+def test_every_message_has_compliance_footer(community_batch: Path) -> None:
     esp = FakeESP()
-    transport = EmailTransport(esp, "from@test", "https://x/unsub")
+    transport = EmailTransport(
+        esp,
+        "from@test",
+        "https://x/unsub?c={candidate_id}",
+        physical_address="1 Test Way",
+        sender_identity="Test Co",
+    )
     send_batch(
         community_batch,
         confirm=True,
-        config=SendBatchConfig(throttle_day=date(2026, 1, 1)),
+        config=SendBatchConfig(
+            throttle_day=date(2026, 1, 1),
+            physical_address="1 Test Way",
+            sender_identity="Test Co",
+        ),
         transport=transport,
     )
     assert len(esp.sends) == 1
     body = str(esp.sends[0]["body"])
-    assert OPT_OUT_LINE.strip() in body
+    assert "UNSUBSCRIBE" in body
+    assert "1 Test Way" in body
+    assert esp.sends[0]["body_html"] is not None
+    assert "<img" not in str(esp.sends[0]["body_html"])
     headers = esp.sends[0]["headers"]
     assert isinstance(headers, dict)
     assert "List-Unsubscribe" in headers

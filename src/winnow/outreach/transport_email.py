@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import os
 from dataclasses import dataclass
 from typing import Protocol
@@ -14,13 +15,59 @@ class EmailConfigError(RuntimeError):
 class EmailDeliveryError(RuntimeError):
     """Provider rejected or failed the send (bounce)."""
 
+    hard: bool = True
 
-OPT_OUT_LINE = (
-    "\n\n--\nTo stop receiving these emails, reply with UNSUBSCRIBE "
-    "or use the link in List-Unsubscribe."
-)
+
+class EmailHardBounceError(EmailDeliveryError):
+    """Permanent mailbox/domain failure."""
+
+    hard = True
+
+
+class EmailSoftBounceError(EmailDeliveryError):
+    """Transient failure; retry once, then count toward suppression."""
+
+    hard = False
+
 
 LIST_UNSUBSCRIBE_HEADER = "List-Unsubscribe"
+
+
+def build_compliance_footer(
+    *,
+    sender_identity: str,
+    physical_address: str,
+    unsubscribe_url: str,
+) -> str:
+    lines = [
+        "",
+        "--",
+        f"Sender: {sender_identity}",
+        physical_address.strip(),
+        "",
+        "To stop receiving these emails, reply with UNSUBSCRIBE or visit:",
+        unsubscribe_url.strip(),
+    ]
+    return "\n".join(lines)
+
+
+def plain_to_html(body_plain: str) -> str:
+    """Minimal HTML: escaped text in paragraphs, no images."""
+    escaped = html.escape(body_plain)
+    paragraphs = escaped.replace("\n\n", "</p><p>").replace("\n", "<br>\n")
+    return f"<html><body><p>{paragraphs}</p></body></html>"
+
+
+def maybe_tracking_pixel(body_html: str, *, enabled: bool, pixel_url: str) -> str:
+    if not enabled or not pixel_url.strip():
+        return body_html
+    pixel = (
+        f'<img src="{html.escape(pixel_url.strip())}" alt="" '
+        'width="1" height="1" style="display:none" />'
+    )
+    if "</body>" in body_html:
+        return body_html.replace("</body>", f"{pixel}</body>")
+    return body_html + pixel
 
 
 class EmailProvider(Protocol):
@@ -30,11 +77,12 @@ class EmailProvider(Protocol):
         self,
         to: str,
         subject: str,
-        body: str,
+        body_plain: str,
         *,
+        body_html: str | None = None,
         headers: dict[str, str],
     ) -> str:
-        """Send plain-text email; return provider message id."""
+        """Send multipart plain+HTML email; return provider message id."""
 
 
 @dataclass
@@ -45,6 +93,10 @@ class EmailTransport:
     from_address: str
     unsubscribe_url: str
     subject_prefix: str = "Winnow"
+    sender_identity: str = ""
+    physical_address: str = ""
+    tracking_pixel_enabled: bool = False
+    tracking_pixel_url: str = ""
 
     def send(
         self,
@@ -57,9 +109,21 @@ class EmailTransport:
         if channel != "email":
             msg = f"EmailTransport only supports email, got {channel!r}"
             raise ValueError(msg)
-        full_body = body.rstrip() + OPT_OUT_LINE
+        identity = self.sender_identity.strip() or self.from_address
+        footer = build_compliance_footer(
+            sender_identity=identity,
+            physical_address=self.physical_address or "(address not configured)",
+            unsubscribe_url=self.unsubscribe_url,
+        )
+        full_plain = body.rstrip() + footer
+        full_html = maybe_tracking_pixel(
+            plain_to_html(full_plain),
+            enabled=self.tracking_pixel_enabled,
+            pixel_url=self.tracking_pixel_url,
+        )
+        unsubscribe = self.unsubscribe_url.format(candidate_id=candidate_id)
         headers = {
-            LIST_UNSUBSCRIBE_HEADER: f"<{self.unsubscribe_url}>",
+            LIST_UNSUBSCRIBE_HEADER: f"<{unsubscribe}>",
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         }
         subject = f"{self.subject_prefix}: outreach to {candidate_id}"
@@ -67,7 +131,8 @@ class EmailTransport:
             return self.provider.send_email(
                 recipient,
                 subject,
-                full_body,
+                full_plain,
+                body_html=full_html,
                 headers=headers,
             )
         except EmailDeliveryError:
@@ -114,11 +179,12 @@ class SendGridProvider:
         self,
         to: str,
         subject: str,
-        body: str,
+        body_plain: str,
         *,
+        body_html: str | None = None,
         headers: dict[str, str],
     ) -> str:
-        del headers, subject, body, to
+        del headers, subject, body_plain, body_html, to
         raise EmailConfigError(
             "SendGridProvider requires live HTTP; inject a test EmailProvider in unit tests"
         )
@@ -136,11 +202,12 @@ class SesProvider:
         self,
         to: str,
         subject: str,
-        body: str,
+        body_plain: str,
         *,
+        body_html: str | None = None,
         headers: dict[str, str],
     ) -> str:
-        del headers, subject, body, to, self
+        del headers, subject, body_plain, body_html, to, self
         raise EmailConfigError(
             "SesProvider requires live AWS API; inject a test EmailProvider in unit tests"
         )

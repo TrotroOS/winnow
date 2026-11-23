@@ -19,7 +19,10 @@ from winnow.outreach.transport_linkedin import (
 from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.templates import TEMPLATE_VERSION, build_message
 from winnow.outreach.throttle import Throttle
+from winnow.outreach.bounce import BounceHandler
+from winnow.outreach.domain_throttle import RecipientDomainThrottle
 from winnow.outreach.guards import sends_halted
+from winnow.outreach.transport_email import EmailSoftBounceError
 from winnow.outreach.tracker import OutreachTracker
 from winnow.store import WinnowStore
 
@@ -60,6 +63,7 @@ class OutreachSender:
     per_run_send_cap: int | None = None
     store: WinnowStore | None = None
     run_id: int | None = None
+    domain_throttle: RecipientDomainThrottle | None = None
     _pending: dict[str, SendBatch] = field(default_factory=dict)
     _sent_this_run: int = field(default=0, init=False)
 
@@ -150,22 +154,29 @@ class OutreachSender:
             if not self.throttle.allow(message.channel):
                 skipped += 1
                 continue
+            if message.channel == "email" and self.domain_throttle is not None:
+                if not self.domain_throttle.allow(message.recipient):
+                    skipped += 1
+                    continue
             try:
-                provider_id = self.transport.send(
-                    message.channel,
-                    message.recipient,
-                    message.body,
-                    candidate_id=message.candidate_id,
+                provider_id = self._send_with_soft_retry(message)
+            except Exception as exc:
+                bounce_handler = BounceHandler(
+                    store=self.store,
+                    suppression=self.suppression,
+                    tracker=self.tracker,
                 )
-            except Exception:
-                self.tracker.record_bounced(
+                bounce_handler.handle(
                     message.candidate_id,
                     template_version=message.template_version,
+                    exc=exc,
                 )
                 bounced += 1
                 continue
             self.suppression.mark_contacted(message.candidate_id)
             self.throttle.record(message.channel)
+            if message.channel == "email" and self.domain_throttle is not None:
+                self.domain_throttle.record(message.recipient)
             self.tracker.record_sent(
                 message.candidate_id,
                 template_version=message.template_version,
@@ -188,3 +199,19 @@ class OutreachSender:
             suppressed=suppressed,
             skipped=skipped,
         )
+
+    def _send_with_soft_retry(self, message: OutboundMessage) -> str:
+        try:
+            return self.transport.send(
+                message.channel,
+                message.recipient,
+                message.body,
+                candidate_id=message.candidate_id,
+            )
+        except EmailSoftBounceError:
+            return self.transport.send(
+                message.channel,
+                message.recipient,
+                message.body,
+                candidate_id=message.candidate_id,
+            )

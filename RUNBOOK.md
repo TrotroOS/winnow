@@ -141,6 +141,39 @@ WINNOW GUARD — BINARY ONLY
 
 ---
 
+## Email deliverability checklist (SPF / DKIM / DMARC)
+
+Winnow does **not** automate DNS. Before live `send-batch --confirm`, verify each item with your DNS host and ESP (SendGrid, SES, etc.).
+
+### SPF (Sender Policy Framework)
+
+- [ ] Identify every host that sends mail for your outreach domain (ESP relay, any forwarding).
+- [ ] Publish a TXT record at the root domain (or dedicated subdomain used in `email_from`) listing authorized senders, e.g. `v=spf1 include:sendgrid.net ~all` or `include:amazonses.com`.
+- [ ] Keep **one** consolidated SPF TXT per domain; merge includes instead of stacking multiple SPF records.
+- [ ] After changes, wait for TTL, then send a test to a mailbox that shows headers (Gmail “Show original”) and confirm `spf=pass`.
+
+### DKIM (DomainKeys Identified Mail)
+
+- [ ] In the ESP, enable DKIM signing for the **same** domain (or aligned subdomain) as `email_from` in config.
+- [ ] Copy the ESP-provided CNAME or TXT records into DNS; do not typo selector names.
+- [ ] Confirm `dkim=pass` on a test message; rotate keys only per ESP docs.
+
+### DMARC (alignment and policy)
+
+- [ ] Publish `_dmarc.<domain>` TXT, e.g. `v=DMARC1; p=none; rua=mailto:dmarc-reports@yourdomain.com` while warming.
+- [ ] Ensure **From** domain aligns with SPF/DKIM signing domain (strict alignment preferred).
+- [ ] Monitor aggregate reports (`rua`); move toward `p=quarantine` or `p=reject` only after sustained pass rates and low bounce.
+- [ ] On bounce spikes (>3% in audit), pause with `WINNOW_HALT=1`, fix list quality and DNS, then dry-run again.
+
+### In-app compliance (config, not DNS)
+
+- Set `sender_identity`, `physical_address`, and `unsubscribe_url` in YAML (per-candidate id in URL via `{candidate_id}`).
+- Tracking pixels are **off** by default (`tracking_pixel_enabled: false`).
+- Hard bounces → `status=bounced` and suppression; soft bounces retry once per send, suppress after three stored attempts.
+- Opt-out via link or reply (`UNSUBSCRIBE`) → `status=opted_out` and permanent suppression.
+
+---
+
 ## Quick reference commands
 
 ```bash
@@ -155,4 +188,8 @@ python -m winnow.run send-batch logs/batch_<timestamp>.json --confirm
 
 # Tests
 python -m pytest -v
+
+# GDPR export / erasure (SQLite store)
+python -m winnow.privacy export --candidate-id <id>
+python -m winnow.privacy erase --candidate-id <id>
 ```

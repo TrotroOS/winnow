@@ -10,6 +10,7 @@ from pathlib import Path
 from winnow.models import OutreachSummary
 from winnow.outreach.sender import OutboundMessage, OutreachSender, SendBatch
 from winnow.outreach.suppression import SuppressionStore
+from winnow.outreach.domain_throttle import RecipientDomainThrottle
 from winnow.outreach.throttle import Throttle
 from winnow.outreach.tracker import OutreachTracker
 from winnow.outreach.guards import sends_halted
@@ -36,7 +37,12 @@ class SendBatchConfig:
     warmup_step: int = 5
     warmup_start_date: str | None = None
     from_address: str = "outreach@example.com"
-    unsubscribe_url: str = "https://example.com/unsubscribe"
+    unsubscribe_url: str = "https://example.com/unsubscribe?c={candidate_id}"
+    sender_identity: str = ""
+    physical_address: str = ""
+    tracking_pixel_enabled: bool = False
+    tracking_pixel_url: str = ""
+    max_per_hour_per_recipient_domain: int = 20
     throttle_day: date | None = None
     linkedin_daily_cap: int = DEFAULT_LINKEDIN_DAILY_CAP
 
@@ -87,6 +93,10 @@ def send_batch(
             provider=esp,
             from_address=config.from_address,
             unsubscribe_url=config.unsubscribe_url,
+            sender_identity=config.sender_identity or config.from_address,
+            physical_address=config.physical_address,
+            tracking_pixel_enabled=config.tracking_pixel_enabled,
+            tracking_pixel_url=config.tracking_pixel_url,
         )
         router = ChannelRouterTransport(email=email_t)
         batch_preview = load_batch_file(path)
@@ -96,11 +106,15 @@ def send_batch(
         transport = router
 
     batch = load_batch_file(path)
+    domain_throttle = RecipientDomainThrottle(
+        max_per_hour=config.max_per_hour_per_recipient_domain,
+    )
     sender = OutreachSender(
         transport=transport,
         suppression=SuppressionStore(),
         throttle=throttle,
         tracker=OutreachTracker(),
         per_run_send_cap=config.per_run_send_cap,
+        domain_throttle=domain_throttle,
     )
     return sender.deliver_batch(batch)

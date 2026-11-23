@@ -1,0 +1,15 @@
+{
+  "batch_id": "1657aab0-d4a3-4c27-a37b-086364e2a12a",
+  "situation_type": "community",
+  "message_count": 1,
+  "messages": [
+    {
+      "candidate_id": "cand-0",
+      "channel": "email",
+      "recipient": "user0@example.com",
+      "body": "Hi User 0,\n\nNoticed active in the community at Dev Club. We'd love your perspective as we grow the community.",
+      "situation_type": "community",
+      "template_version": "2026.11"
+    }
+  ]
+}
