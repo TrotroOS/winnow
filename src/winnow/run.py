@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from winnow.budget import SpendTracker
+from winnow.feedback import TemplateStats, emit_suggestions, suggest
 from winnow.criteria.builder import build_criteria, parse_situation
 from winnow.models import Candidate, RunResult
 from winnow.orchestrator import RunConfig, run
@@ -205,6 +206,22 @@ def execute(
         batch_path=batch_path,
         sources_used=result.sources,
     )
+
+    feedback = suggest(
+        template,
+        TemplateStats(0, 0),
+        possible_count=len(result.possible),
+        daily_cap=run_cfg.daily_cap,
+        predicate_names=tuple(c.name for c in criteria),
+        matched_signal_hint=criteria[0].name if criteria else "matched_signal",
+    )
+    if "exceeds" in feedback or "below operator bound" in feedback:
+        emit_suggestions(
+            feedback,
+            log_path=base_logs / "feedback.jsonl",
+            template_name=template,
+        )
+
     return result, summary
 
 

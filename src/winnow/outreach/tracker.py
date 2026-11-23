@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-OutreachStatus = Literal["sent", "replied", "bounced"]
+OutreachStatus = Literal["sent", "replied", "bounced", "opt_out"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +44,11 @@ class OutreachTracker:
     def record_bounced(self, candidate_id: str, *, template_version: str) -> None:
         self.records.append(
             OutreachRecord(candidate_id, template_version, "bounced")
+        )
+
+    def record_opt_out(self, candidate_id: str, *, template_version: str) -> None:
+        self.records.append(
+            OutreachRecord(candidate_id, template_version, "opt_out")
         )
 
     def sent_ids(self) -> set[str]:
