@@ -16,7 +16,13 @@ from winnow.criteria.builder import build_criteria, parse_situation
 from winnow.models import Candidate, RunResult
 from winnow.orchestrator import RunConfig, run
 from winnow.outreach.batch_send import SendBatchConfig, send_batch
+from winnow.outreach.batcher import channel_priority_from_config
 from winnow.outreach.guards import resolve_manual_approve
+from winnow.outreach.transport_linkedin import (
+    DEFAULT_LINKEDIN_DAILY_CAP,
+    DEFAULT_MATCHED_SIGNAL_MAX_AGE_DAYS,
+    announce_linkedin_manual_only,
+)
 from winnow.outreach.engine import NoopTransport
 from winnow.outreach.sender import OutreachSender
 from winnow.outreach.suppression import SuppressionStore
@@ -38,6 +44,20 @@ def _load_yaml(path: Path) -> dict:
     if not isinstance(data, dict):
         raise SystemExit(f"config root must be a mapping: {path}")
     return data
+
+
+def outreach_channels_from_config(raw: dict) -> tuple[str, ...]:
+    situation = raw.get("situation")
+    if isinstance(situation, dict):
+        ch = situation.get("channels")
+        if isinstance(ch, str):
+            return (ch,)
+        if isinstance(ch, (list, tuple)):
+            return tuple(str(c) for c in ch)
+    if raw.get("channel"):
+        return (str(raw["channel"]),)
+    priority = channel_priority_from_config(raw)
+    return priority
 
 
 def _situation_from_config(raw: dict) -> dict:
@@ -101,6 +121,13 @@ def _run_config_from_yaml(
             raw.get("per_run_send_cap", 25),
         )
     )
+    caps_raw = raw.get("channel_caps")
+    linkedin_cap = DEFAULT_LINKEDIN_DAILY_CAP
+    if isinstance(caps_raw, dict) and caps_raw.get("linkedin") is not None:
+        linkedin_cap = int(caps_raw["linkedin"])
+    elif raw.get("linkedin_daily_cap") is not None:
+        linkedin_cap = int(raw["linkedin_daily_cap"])
+
     return RunConfig(
         max_spend_per_run=float(raw.get("max_spend_per_run", 5)),
         max_spend_per_month=float(raw.get("max_spend_per_month", 100)),
@@ -111,6 +138,11 @@ def _run_config_from_yaml(
         dry_run=dry_run,
         daily_cap=daily_cap,
         max_sends_per_run=max_sends,
+        linkedin_daily_cap=linkedin_cap,
+        matched_signal_max_age_days=int(
+            raw.get("matched_signal_max_age_days", DEFAULT_MATCHED_SIGNAL_MAX_AGE_DAYS)
+        ),
+        channel_priority=channel_priority_from_config(raw),
     )
 
 
@@ -127,9 +159,17 @@ def write_manual_batch_file(
     criteria: list,
     daily_cap: int,
     transport: object | None = None,
+    linkedin_daily_cap: int = DEFAULT_LINKEDIN_DAILY_CAP,
+    channel_priority: tuple[str, ...] | None = None,
+    linkedin_max_signal_age_days: int = DEFAULT_MATCHED_SIGNAL_MAX_AGE_DAYS,
+    filter_now: datetime | None = None,
 ) -> Path:
     """Stage outreach messages to JSON; never sends via transport."""
-    caps = {"email": daily_cap, "linkedin": daily_cap, "dm": daily_cap}
+    caps = {
+        "email": daily_cap,
+        "linkedin": linkedin_daily_cap,
+        "dm": daily_cap,
+    }
     sender = OutreachSender(
         transport=transport or NoopTransport(),
         suppression=SuppressionStore(),
@@ -141,6 +181,9 @@ def write_manual_batch_file(
         possible=possible,
         criteria=criteria,
         manual_approve=True,
+        channel_priority=channel_priority,
+        filter_now=filter_now,
+        linkedin_max_signal_age_days=linkedin_max_signal_age_days,
     )
     payload = {
         "batch_id": batch.batch_id,
@@ -198,10 +241,14 @@ def execute(
         spend_json=spend_log,
         suppression_files=(base_logs / "suppression.txt",),
     )
+    outreach_channels = outreach_channels_from_config(raw)
+    if "linkedin" in outreach_channels:
+        announce_linkedin_manual_only()
     outreach_mode = str(raw.get("outreach_mode", "manual_approve"))
     manual_approve, guard_warning = resolve_manual_approve(
         outreach_mode,
         audit_log_path=audit_log,
+        outreach_channels=outreach_channels,
     )
     if guard_warning:
         print(guard_warning, file=sys.stderr)
@@ -230,6 +277,10 @@ def execute(
             possible=result.possible,
             criteria=criteria,
             daily_cap=run_cfg.daily_cap,
+            linkedin_daily_cap=run_cfg.linkedin_daily_cap,
+            channel_priority=run_cfg.channel_priority,
+            linkedin_max_signal_age_days=run_cfg.matched_signal_max_age_days,
+            filter_now=run_cfg.filter_now,
         )
 
     month_tracker = SpendTracker(
@@ -265,6 +316,12 @@ def execute(
 
 
 def _send_batch_config_from_yaml(raw: dict) -> SendBatchConfig:
+    linkedin_cap = DEFAULT_LINKEDIN_DAILY_CAP
+    caps_raw = raw.get("channel_caps")
+    if isinstance(caps_raw, dict) and caps_raw.get("linkedin") is not None:
+        linkedin_cap = int(caps_raw["linkedin"])
+    elif raw.get("linkedin_daily_cap") is not None:
+        linkedin_cap = int(raw["linkedin_daily_cap"])
     return SendBatchConfig(
         daily_cap=effective_daily_cap(
             ceiling=int(raw.get("daily_cap", 25)),
@@ -278,6 +335,7 @@ def _send_batch_config_from_yaml(raw: dict) -> SendBatchConfig:
         warmup_start_date=raw.get("warmup_start_date"),
         from_address=str(raw.get("email_from", "outreach@example.com")),
         unsubscribe_url=str(raw.get("unsubscribe_url", "https://example.com/unsubscribe")),
+        linkedin_daily_cap=linkedin_cap,
     )
 
 

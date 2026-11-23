@@ -59,6 +59,7 @@ def resolve_manual_approve(
     outreach_mode: str,
     *,
     audit_log_path: Path,
+    outreach_channels: tuple[str, ...] = (),
 ) -> tuple[bool, str | None]:
     """Return ``(manual_approve, optional_warning)`` for outreach mode resolution."""
     mode = outreach_mode.strip().lower()
@@ -66,6 +67,12 @@ def resolve_manual_approve(
         return True, None
     if mode != "auto_send":
         return True, f"WARNING: unknown outreach_mode {outreach_mode!r}; using manual_approve."
+
+    from winnow.outreach.transport_linkedin import enforce_linkedin_manual_only
+
+    linkedin_warning = enforce_linkedin_manual_only(outreach_mode, outreach_channels)
+    if linkedin_warning:
+        return True, linkedin_warning
 
     if sends_halted():
         return True, "WARNING: WINNOW_HALT is set; auto_send disabled (manual_approve)."

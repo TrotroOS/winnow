@@ -13,10 +13,17 @@ from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.throttle import Throttle
 from winnow.outreach.tracker import OutreachTracker
 from winnow.outreach.guards import sends_halted
+from winnow.outreach.routing_transport import ChannelRouterTransport
 from winnow.outreach.transport_email import (
     EmailProvider,
     EmailTransport,
     email_provider_from_env,
+)
+from winnow.outreach.transport_linkedin import (
+    DEFAULT_LINKEDIN_DAILY_CAP,
+    LinkedInProvider,
+    LinkedInTransport,
+    linkedin_provider_from_env,
 )
 from winnow.outreach.warmup import effective_daily_cap
 
@@ -31,6 +38,7 @@ class SendBatchConfig:
     from_address: str = "outreach@example.com"
     unsubscribe_url: str = "https://example.com/unsubscribe"
     throttle_day: date | None = None
+    linkedin_daily_cap: int = DEFAULT_LINKEDIN_DAILY_CAP
 
 
 def load_batch_file(path: Path) -> SendBatch:
@@ -47,7 +55,8 @@ def send_batch(
     confirm: bool,
     config: SendBatchConfig,
     provider: EmailProvider | None = None,
-    transport: EmailTransport | None = None,
+    linkedin_provider: LinkedInProvider | None = None,
+    transport: ChannelRouterTransport | EmailTransport | None = None,
 ) -> OutreachSummary:
     """Deliver a staged batch. Without ``confirm``, returns zeros and sends nothing."""
     if not confirm:
@@ -65,16 +74,26 @@ def send_batch(
         today=config.throttle_day,
     )
     throttle = Throttle(
-        caps={"email": cap, "linkedin": 0, "dm": 0},
+        caps={
+            "email": cap,
+            "linkedin": config.linkedin_daily_cap,
+            "dm": 0,
+        },
         day=config.throttle_day,
     )
     if transport is None:
         esp = provider or email_provider_from_env()
-        transport = EmailTransport(
+        email_t = EmailTransport(
             provider=esp,
             from_address=config.from_address,
             unsubscribe_url=config.unsubscribe_url,
         )
+        router = ChannelRouterTransport(email=email_t)
+        batch_preview = load_batch_file(path)
+        if any(m.channel == "linkedin" for m in batch_preview.messages):
+            li_provider = linkedin_provider or linkedin_provider_from_env()
+            router.linkedin = LinkedInTransport(provider=li_provider)
+        transport = router
 
     batch = load_batch_file(path)
     sender = OutreachSender(

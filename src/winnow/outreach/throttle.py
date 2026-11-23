@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 
 DEFAULT_DAILY_CAPS: dict[str, int] = {
     "email": 50,
-    "linkedin": 25,
+    "linkedin": 20,
     "dm": 20,
 }
 

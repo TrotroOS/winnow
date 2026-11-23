@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from winnow.models import Candidate, Criteria
 from winnow.outreach.personalize import matched_signal
@@ -51,6 +52,8 @@ def build_message(
     situation_type: str,
     candidate: Candidate,
     criteria: Sequence[Criteria],
+    *,
+    now: datetime | None = None,
 ) -> str:
     """Format the outreach body; raises if ``matched_signal`` cannot be determined."""
     key = situation_type.strip().lower()
@@ -59,7 +62,7 @@ def build_message(
     except KeyError as exc:
         known = ", ".join(sorted(MESSAGE_TEMPLATES))
         raise ValueError(f"Unknown situation {situation_type!r}; known: {known}") from exc
-    hook = matched_signal(candidate, criteria)
+    hook = matched_signal(candidate, criteria, now=now)
     return template.format(
         name=candidate.name or "there",
         org=candidate.org or "your team",

@@ -36,6 +36,9 @@ class RunConfig:
     dry_run: bool = False
     daily_cap: int = 50
     max_sends_per_run: int = 25
+    linkedin_daily_cap: int = 20
+    matched_signal_max_age_days: int = 30
+    channel_priority: tuple[str, ...] = ()
     store: WinnowStore | None = None
 
 
@@ -165,9 +168,10 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         for row in possible:
             store.save_candidate(row, "possible")
 
+    priority = cfg.channel_priority or ("email", "linkedin", "dm")
     throttle_caps = {
         "email": cfg.daily_cap,
-        "linkedin": cfg.daily_cap,
+        "linkedin": cfg.linkedin_daily_cap,
         "dm": cfg.daily_cap,
     }
     outreach = run_outreach(
@@ -181,6 +185,9 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         per_run_send_cap=cfg.max_sends_per_run,
         store=store,
         run_id=run_db_id,
+        channel_priority=priority,
+        filter_now=cfg.filter_now,
+        linkedin_max_signal_age_days=cfg.matched_signal_max_age_days,
     )
 
     possible_ids = tuple(c.id for c in possible)

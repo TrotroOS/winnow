@@ -5,10 +5,17 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Protocol
 
 from winnow.models import Candidate, Criteria, OutreachSummary
-from winnow.outreach.batcher import primary_channel, recipient_for
+from winnow.outreach.batcher import CHANNEL_PRIORITY, primary_channel, recipient_for
+from winnow.outreach.personalize import MatchedSignalError
+from winnow.outreach.transport_linkedin import (
+    DEFAULT_MATCHED_SIGNAL_MAX_AGE_DAYS,
+    SECOND_CHANNEL,
+    linkedin_candidate_eligible,
+)
 from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.templates import TEMPLATE_VERSION, build_message
 from winnow.outreach.throttle import Throttle
@@ -63,17 +70,36 @@ class OutreachSender:
         possible: Sequence[Candidate],
         criteria: Sequence[Criteria],
         manual_approve: bool = True,
+        channel_priority: tuple[str, ...] | None = None,
+        filter_now: datetime | None = None,
+        linkedin_max_signal_age_days: int = DEFAULT_MATCHED_SIGNAL_MAX_AGE_DAYS,
     ) -> SendBatch:
         """Stage messages for POSSIBLE candidates only (manual mode sends nothing yet)."""
         batch_id = str(uuid.uuid4())
         messages: list[OutboundMessage] = []
+        priority = channel_priority or CHANNEL_PRIORITY
         for candidate in possible:
             if self.suppression.is_suppressed(candidate.id):
                 continue
-            channel = primary_channel(candidate)
+            channel = primary_channel(candidate, priority=priority)
             if channel is None:
                 continue
-            body = build_message(situation_type, candidate, criteria)
+            if channel == SECOND_CHANNEL:
+                if not linkedin_candidate_eligible(
+                    candidate,
+                    criteria,
+                    now=filter_now,
+                    max_age_days=linkedin_max_signal_age_days,
+                ):
+                    continue
+            try:
+                body = build_message(
+                    situation_type, candidate, criteria, now=filter_now
+                )
+            except MatchedSignalError:
+                if channel == SECOND_CHANNEL:
+                    continue
+                raise
             messages.append(
                 OutboundMessage(
                     candidate_id=candidate.id,

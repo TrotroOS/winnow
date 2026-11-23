@@ -58,6 +58,9 @@ def run_outreach(
     per_run_send_cap: int | None = None,
     store: WinnowStore | None = None,
     run_id: int | None = None,
+    channel_priority: tuple[str, ...] | None = None,
+    filter_now=None,
+    linkedin_max_signal_age_days: int = 30,
 ) -> OutreachSummary:
     """Stage POSSIBLE rows in batches; send immediately or hold for manual approval."""
     sender = OutreachSender(
@@ -84,6 +87,9 @@ def run_outreach(
             possible=chunk,
             criteria=criteria,
             manual_approve=True,
+            channel_priority=channel_priority,
+            filter_now=filter_now,
+            linkedin_max_signal_age_days=linkedin_max_signal_age_days,
         )
         if manual_approve:
             skipped += len(batch.messages)
