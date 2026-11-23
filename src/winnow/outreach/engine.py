@@ -54,6 +54,7 @@ def run_outreach(
     suppressed_ids: frozenset[str] = frozenset(),
     transport: Transport | None = None,
     throttle_caps: dict[str, int] | None = None,
+    per_run_send_cap: int | None = None,
 ) -> OutreachSummary:
     """Stage POSSIBLE rows in batches; send immediately or hold for manual approval."""
     sender = OutreachSender(
@@ -64,6 +65,7 @@ def run_outreach(
             or {"email": 10_000, "linkedin": 10_000, "dm": 10_000},
         ),
         tracker=OutreachTracker(),
+        per_run_send_cap=per_run_send_cap,
     )
     for candidate_id in suppressed_ids:
         sender.suppression.mark_contacted(candidate_id)

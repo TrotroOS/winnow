@@ -12,6 +12,7 @@ from winnow.outreach.sender import OutboundMessage, OutreachSender, SendBatch
 from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.throttle import Throttle
 from winnow.outreach.tracker import OutreachTracker
+from winnow.outreach.guards import sends_halted
 from winnow.outreach.transport_email import (
     EmailProvider,
     EmailTransport,
@@ -51,6 +52,10 @@ def send_batch(
     """Deliver a staged batch. Without ``confirm``, returns zeros and sends nothing."""
     if not confirm:
         return OutreachSummary()
+
+    if sends_halted():
+        batch = load_batch_file(path)
+        return OutreachSummary(skipped=len(batch.messages))
 
     cap = effective_daily_cap(
         ceiling=config.daily_cap,

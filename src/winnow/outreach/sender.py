@@ -12,6 +12,7 @@ from winnow.outreach.batcher import primary_channel, recipient_for
 from winnow.outreach.suppression import SuppressionStore
 from winnow.outreach.templates import TEMPLATE_VERSION, build_message
 from winnow.outreach.throttle import Throttle
+from winnow.outreach.guards import sends_halted
 from winnow.outreach.tracker import OutreachTracker
 
 
@@ -100,11 +101,17 @@ class OutreachSender:
         return self._deliver(batch)
 
     def _deliver(self, batch: SendBatch) -> OutreachSummary:
+        if sends_halted():
+            return OutreachSummary(skipped=len(batch.messages))
+
         sent = 0
         suppressed = 0
         skipped = 0
         bounced = 0
         for message in batch.messages:
+            if sends_halted():
+                skipped += 1
+                continue
             if self.suppression.is_suppressed(message.candidate_id):
                 suppressed += 1
                 continue

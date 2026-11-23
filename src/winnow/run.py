@@ -15,6 +15,7 @@ from winnow.criteria.builder import build_criteria, parse_situation
 from winnow.models import Candidate, RunResult
 from winnow.orchestrator import RunConfig, run
 from winnow.outreach.batch_send import SendBatchConfig, send_batch
+from winnow.outreach.guards import resolve_manual_approve
 from winnow.outreach.engine import NoopTransport
 from winnow.outreach.sender import OutreachSender
 from winnow.outreach.suppression import SuppressionStore
@@ -84,9 +85,8 @@ def _run_config_from_yaml(
     dry_run: bool,
     spend_log_path: Path,
     audit_log_path: Path,
+    manual_approve: bool,
 ) -> RunConfig:
-    outreach_mode = str(raw.get("outreach_mode", "manual_approve")).strip().lower()
-    manual = outreach_mode in {"manual_approve", "manual", "approve"}
     daily_cap = effective_daily_cap(
         ceiling=int(raw.get("daily_cap", 25)),
         warmup_start_daily_cap=int(raw.get("warmup_start_daily_cap", 5)),
@@ -94,15 +94,22 @@ def _run_config_from_yaml(
         warmup_start_date=raw.get("warmup_start_date"),
     )
     search_limit = int(limit if limit is not None else raw.get("search_limit", 50))
+    max_sends = int(
+        raw.get(
+            "max_sends_per_run",
+            raw.get("per_run_send_cap", 25),
+        )
+    )
     return RunConfig(
         max_spend_per_run=float(raw.get("max_spend_per_run", 5)),
         max_spend_per_month=float(raw.get("max_spend_per_month", 100)),
         audit_log_path=audit_log_path,
         spend_log_path=spend_log_path,
         search_limit=search_limit,
-        manual_approve=manual,
+        manual_approve=manual_approve,
         dry_run=dry_run,
         daily_cap=daily_cap,
+        max_sends_per_run=max_sends,
     )
 
 
@@ -184,12 +191,20 @@ def execute(
     base_logs = logs_dir or Path("logs")
     spend_log = base_logs / "spend.json"
     audit_log = base_logs / "runs.jsonl"
+    outreach_mode = str(raw.get("outreach_mode", "manual_approve"))
+    manual_approve, guard_warning = resolve_manual_approve(
+        outreach_mode,
+        audit_log_path=audit_log,
+    )
+    if guard_warning:
+        print(guard_warning, file=sys.stderr)
     run_cfg = _run_config_from_yaml(
         raw,
         limit=limit,
         dry_run=dry_run,
         spend_log_path=spend_log,
         audit_log_path=audit_log,
+        manual_approve=manual_approve,
     )
 
     result = run(situation_input, run_cfg)

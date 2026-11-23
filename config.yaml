@@ -23,7 +23,13 @@ per_run_send_cap: 25
 
 max_spend_per_run: 5
 max_spend_per_month: 100
+max_sends_per_run: 25
+
+# Outreach: manual_approve writes logs/batch_*.json for review; auto_send sends
+# immediately within daily_cap, max_sends_per_run, suppression, and spend caps.
+# auto_send is refused when WINNOW_HALT=1 or recent audit bounce/reply guard trips.
 outreach_mode: manual_approve
+# outreach_mode: auto_send
 
 # Email transport (set in env for live send-batch --confirm only):
 # WINNOW_EMAIL_PROVIDER: sendgrid|ses

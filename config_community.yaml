@@ -22,7 +22,11 @@ per_run_send_cap: 25
 
 max_spend_per_run: 5
 max_spend_per_month: 100
+max_sends_per_run: 25
+
+# manual_approve (default) or auto_send (bounded; see config.yaml comments)
 outreach_mode: manual_approve
+# outreach_mode: auto_send
 
 email_from: "outreach@example.com"
 unsubscribe_url: "https://example.com/unsubscribe"

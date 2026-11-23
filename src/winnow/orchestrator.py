@@ -34,6 +34,7 @@ class RunConfig:
     filter_now: datetime | None = None
     dry_run: bool = False
     daily_cap: int = 50
+    max_sends_per_run: int = 25
 
 
 def _default_queries(situation) -> list[str]:
@@ -162,6 +163,7 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
         manual_approve=cfg.manual_approve,
         suppressed_ids=cfg.suppressed_candidate_ids,
         throttle_caps=throttle_caps,
+        per_run_send_cap=cfg.max_sends_per_run,
     )
 
     possible_ids = tuple(c.id for c in possible)
