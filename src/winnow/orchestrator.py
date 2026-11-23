@@ -165,8 +165,10 @@ def run(situation_input: dict, config: RunConfig | None = None) -> RunResult:
             )
             noise_dropped += extra_noise
 
-    outreach: OutreachSummary = run_outreach(
+    outreach = run_outreach(
         possible,
+        situation_type=template_name,
+        criteria=criteria,
         batch_size=cfg.outreach_batch_size,
         manual_approve=cfg.manual_approve,
         suppressed_ids=cfg.suppressed_candidate_ids,
