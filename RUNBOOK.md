@@ -296,7 +296,7 @@ make test
 
 ## Vercel (static site only)
 
-Vercel cannot run the scheduler or live sends. On each deploy, `vercel.json` runs `python3 scripts/build_demo_site.py`, which executes the mock demo pipeline and writes `site/index.html` (full POSSIBLE/NOISE table, preview, invariant checks). Dry-run and sends stay on your host or Docker.
+Vercel cannot run the scheduler or live sends. Deploy is **static** (`framework: null` in `vercel.json`) so the repo is not treated as a Python serverless app. The build step is `npm run build`, which runs `scripts/vercel-build.mjs`; when `python3` and the package are available it regenerates `site/index.html` from the mock demo, otherwise it uses the committed `site/index.html`. Dry-run and sends stay on your host or Docker.
 
 ```bash
 npm i -g vercel    # or: npx vercel
