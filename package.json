@@ -1,0 +1,8 @@
+{
+  "name": "winnow",
+  "private": true,
+  "description": "Vercel static build wrapper; Python demo runs in build step when available.",
+  "scripts": {
+    "build": "node scripts/vercel-build.mjs"
+  }
+}
