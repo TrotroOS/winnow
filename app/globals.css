@@ -1,0 +1,59 @@
+:root {
+  color-scheme: light dark;
+  --fg: #1a1a1a;
+  --muted: #555;
+  --bg: #fafafa;
+  --border: rgba(127, 127, 127, 0.35);
+  --pass: #0d7d3d;
+  --fail: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e8e8e8;
+    --muted: #aaa;
+    --bg: #121212;
+    --pass: #6dd58c;
+    --fail: #f2b8b5;
+  }
+}
+body {
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+  color: var(--fg);
+  background: var(--bg);
+}
+a {
+  color: inherit;
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.pass {
+  color: var(--pass);
+}
+.fail {
+  color: var(--fail);
+}
