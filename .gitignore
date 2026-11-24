@@ -12,4 +12,6 @@ logs/
 data/
 backups/
 .env
+.env.local
+.vercel/
 site/reports/*.html
