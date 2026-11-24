@@ -228,7 +228,8 @@ def _module_table() -> str:
     return "\n".join(lines)
 
 
-def main() -> int:
+def execute_demo() -> dict[str, object]:
+    """Run fixture demo pipeline; return structured data for CLI or static HTML."""
     clear()
     paid_spy = PaidCallSpy()
     for adapter in list_adapters():
@@ -345,6 +346,58 @@ def main() -> int:
     if possible:
         preview = build_message(template_name, possible[0], criteria, now=DEMO_NOW)
 
+    invariants = _invariant_results(
+        possible=possible,
+        noise_dropped=noise_dropped,
+        dedupe_dropped=dedupe_dropped,
+        criteria=list(criteria),
+        reachability_gate=reachability_gate,
+        transport=transport,
+        paid_spy=paid_spy,
+        raw_total=len(combined),
+    )
+    fail_lines = [f"{name}: FAIL" for name, ok, _ in invariants if not ok]
+
+    return {
+        "situation": situation,
+        "situation_input": situation_input,
+        "template_name": template_name,
+        "criteria": criteria,
+        "possible": possible,
+        "noise_dropped": noise_dropped,
+        "dedupe_dropped": dedupe_dropped,
+        "deduped_ids": sorted(deduped_ids),
+        "by_predicate": dict(by_predicate),
+        "intent_lines": intent_lines,
+        "batch_path": batch_path,
+        "outreach": outreach,
+        "preview": preview,
+        "audit_path": audit_path,
+        "invariants": invariants,
+        "fail_lines": fail_lines,
+        "filter_now": DEMO_NOW,
+    }
+
+
+def main() -> int:
+    data = execute_demo()
+    situation = data["situation"]
+    template_name = str(data["template_name"])
+    criteria = data["criteria"]
+    possible = data["possible"]
+    noise_dropped = data["noise_dropped"]
+    dedupe_dropped = data["dedupe_dropped"]
+    deduped_ids = data["deduped_ids"]
+    by_predicate = Counter(data["by_predicate"])  # type: ignore[arg-type]
+    intent_lines = data["intent_lines"]
+    batch_path = data["batch_path"]
+    outreach = data["outreach"]
+    preview = str(data["preview"])
+    audit_path = data["audit_path"]
+    invariants = data["invariants"]
+    fail_lines = data["fail_lines"]
+    filter_now = data["filter_now"]
+
     print("=== WINNOW MOCK DEMO (fixtures only) ===")
     print()
     print("SITUATION")
@@ -353,7 +406,7 @@ def main() -> int:
     print(f"  product: {situation.product}")
     print(f"  goal: {situation.goal}")
     print(f"  criteria: {[c.name for c in criteria]}")
-    print(f"  filter_now: {DEMO_NOW.isoformat()}")
+    print(f"  filter_now: {filter_now.isoformat()}")  # type: ignore[union-attr]
     print()
     print(f"POSSIBLE ({len(possible)})")
     for c in possible:
@@ -402,30 +455,16 @@ def main() -> int:
     print(f"  path: {audit_path}")
     print()
 
-    invariants = _invariant_results(
-        possible=possible,
-        noise_dropped=noise_dropped,
-        dedupe_dropped=dedupe_dropped,
-        criteria=list(criteria),
-        reachability_gate=reachability_gate,
-        transport=transport,
-        paid_spy=paid_spy,
-        raw_total=len(combined),
-    )
     print("INVARIANT CHECKS")
-    fail_lines: list[str] = []
-    for name, ok, detail in invariants:
+    for name, ok, detail in invariants:  # type: ignore[assignment]
         status = "PASS" if ok else "FAIL"
         suffix = f" ({detail})" if detail and not ok else ""
         print(f"  {name}: {status}{suffix}")
-        if not ok:
-            fail_lines.append(f"{name}: FAIL{suffix}")
-
     print(_module_table())
     print()
     print("=== END DEMO ===")
 
-    return 1 if fail_lines else 0
+    return 1 if fail_lines else 0  # type: ignore[misc]
 
 
 if __name__ == "__main__":

@@ -296,7 +296,7 @@ make test
 
 ## Vercel (static site only)
 
-Vercel cannot run the Winnow scheduler or pipeline. It only serves the static `site/` folder (landing page; optional copied run report HTML). Dry-run and sends stay on your host or Docker.
+Vercel cannot run the scheduler or live sends. On each deploy, `vercel.json` runs `python3 scripts/build_demo_site.py`, which executes the mock demo pipeline and writes `site/index.html` (full POSSIBLE/NOISE table, preview, invariant checks). Dry-run and sends stay on your host or Docker.
 
 ```bash
 npm i -g vercel    # or: npx vercel
