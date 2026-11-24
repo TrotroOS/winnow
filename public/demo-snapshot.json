@@ -1,0 +1,462 @@
+{
+  "by_predicate": {
+    "decision_maker": 2,
+    "reachability": 3,
+    "recent_activity": 3,
+    "revenue_ready": 2
+  },
+  "criteria_names": [
+    "revenue_ready",
+    "recent_activity",
+    "decision_maker"
+  ],
+  "dedupe_dropped": 2,
+  "fail_lines": [],
+  "filter_now": "2026-11-23T12:00:00+00:00",
+  "intent_lines": [
+    "demo-noise-org-01: fixture intent wrong_org but first_revenue has no org/segment predicate; filter fails via revenue_ready",
+    "demo-noise-org-02: fixture intent wrong_org but first_revenue has no org/segment predicate; filter fails via revenue_ready"
+  ],
+  "invariants": [
+    {
+      "detail": "count=24",
+      "name": "raw_fixture_count_24",
+      "ok": true
+    },
+    {
+      "detail": "count=12",
+      "name": "possible_count_12",
+      "ok": true
+    },
+    {
+      "detail": "possible=12 noise_dropped=10 dedupe=2",
+      "name": "noise_plus_possible_accounts_for_survivors",
+      "ok": true
+    },
+    {
+      "detail": "dedupe_dropped=2",
+      "name": "dedupe_dropped_2",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "no_scoring_fields_on_candidate",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "every_possible_passes_filter",
+      "ok": true
+    },
+    {
+      "detail": "calls=0",
+      "name": "paid_adapter_search_calls_zero",
+      "ok": true
+    },
+    {
+      "detail": "calls=0",
+      "name": "fake_transport_send_zero",
+      "ok": true
+    },
+    {
+      "detail": "enrich not invoked; implicit $0",
+      "name": "spend_this_run_zero",
+      "ok": true
+    }
+  ],
+  "modules": [
+    {
+      "implemented": "Yes",
+      "module": "models",
+      "notes": "Candidate, Criteria, RunResult dataclasses",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "filter",
+      "notes": "Binary filter + reachability gate (do not edit)",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "normalize",
+      "notes": "Raw dict \u2192 Candidate; dedupe by id or name+org",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "criteria/builder",
+      "notes": "parse_situation + template routing",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "criteria/templates",
+      "notes": "first_revenue and 6 other templates",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "criteria/predicates",
+      "notes": "Pure bool signal/role predicates",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Opt-in",
+      "module": "criteria/generative",
+      "notes": "WINNOW_ALLOW_GENERATIVE=1 only",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "enrich",
+      "notes": "Skipped in demo (do not edit)",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "router",
+      "notes": "Cheapest-first ordering; situation unused",
+      "tested": "Partial"
+    },
+    {
+      "implemented": "Yes",
+      "module": "orchestrator",
+      "notes": "Full pipeline; not used in demo script",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "sources/mock",
+      "notes": "tests/fixtures JSON loader",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "sources/csv_fixture",
+      "notes": "CSV/JSON raw dict adapter",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "sources/registry",
+      "notes": "Adapter registration",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "sources/adapter",
+      "notes": "Protocol only",
+      "tested": "N/A"
+    },
+    {
+      "implemented": "Yes",
+      "module": "sources/volume",
+      "notes": "Cache wrapper for adapters",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/engine",
+      "notes": "manual_approve vs send",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/sender",
+      "notes": "Batch build + confirm_send",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/templates",
+      "notes": "Message bodies per situation",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/personalize",
+      "notes": "matched_signal hook",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/batch_send",
+      "notes": "CLI send-batch --confirm",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/guards",
+      "notes": "WINNOW_HALT + auto_send refusal",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/transport_email",
+      "notes": "ESP providers from env",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "outreach/transport_linkedin",
+      "notes": "Manual-only LinkedIn",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "budget",
+      "notes": "Per-run/month caps",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "store",
+      "notes": "SQLite memory + migrations",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "run",
+      "notes": "CLI entry: winnow.run",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "scheduler",
+      "notes": "Daily dry-run scheduler",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "report",
+      "notes": "HTML/CLI run reports",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "feedback",
+      "notes": "Human suggestions only",
+      "tested": "Yes"
+    },
+    {
+      "implemented": "Yes",
+      "module": "healthcheck",
+      "notes": "Env/config probes",
+      "tested": "Limited"
+    },
+    {
+      "implemented": "Yes",
+      "module": "privacy",
+      "notes": "GDPR-style erase CLI",
+      "tested": "Limited"
+    }
+  ],
+  "noise_dropped": 10,
+  "possible": [
+    {
+      "collected_at": "2026-11-20T10:00:00+00:00",
+      "contacts": {
+        "email": "jordan@willowstreet.coffee"
+      },
+      "id": "demo-pos-01",
+      "name": "Jordan Pike",
+      "org": "Willow Street Coffee",
+      "role": "Owner",
+      "signals": {
+        "activity_days": "14",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-18T09:00:00+00:00",
+      "contacts": {
+        "email": "sam@dailygrind.coffee"
+      },
+      "id": "demo-pos-02",
+      "name": "Sam Ortiz",
+      "org": "Daily Grind Roasters",
+      "role": "Founder",
+      "signals": {
+        "activity_days": "7",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-15T14:00:00+00:00",
+      "contacts": {
+        "email": "avery@cornercup.coffee"
+      },
+      "id": "demo-pos-03",
+      "name": "Avery Chen",
+      "org": "Corner Cup Espresso",
+      "role": "CEO",
+      "signals": {
+        "activity_days": "21",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-10T11:00:00+00:00",
+      "contacts": {
+        "email": "riley@beanandbirch.coffee"
+      },
+      "id": "demo-pos-04",
+      "name": "Riley Moss",
+      "org": "Bean & Birch",
+      "role": "Co-Owner",
+      "signals": {
+        "activity_days": "30",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-22T08:00:00+00:00",
+      "contacts": {
+        "email": "casey@harborlight.coffee"
+      },
+      "id": "demo-pos-05",
+      "name": "Casey Brooks",
+      "org": "Harbor Light Coffee House",
+      "role": "Director of Operations",
+      "signals": {
+        "activity_days": "5",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-01T16:00:00+00:00",
+      "contacts": {
+        "email": "morgan@rusticbean.coffee"
+      },
+      "id": "demo-pos-06",
+      "name": "Morgan Tate",
+      "org": "Rustic Bean Cafe",
+      "role": "VP Retail",
+      "signals": {
+        "activity_days": "45",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-19T13:00:00+00:00",
+      "contacts": {
+        "email": "drew@lighthouselatte.coffee"
+      },
+      "id": "demo-pos-07",
+      "name": "Drew Alvarez",
+      "org": "Lighthouse Latte Bar",
+      "role": "Head of Retail",
+      "signals": {
+        "activity_days": "12",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-17T10:30:00+00:00",
+      "contacts": {
+        "email": "jamie@trailhead.coffee"
+      },
+      "id": "demo-pos-08",
+      "name": "Jamie Fox",
+      "org": "Trailhead Coffee Co",
+      "role": "Founder & CEO",
+      "signals": {
+        "activity_days": "18",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-10-01T12:00:00+00:00",
+      "contacts": {
+        "email": "quinn@sunrisesip.coffee"
+      },
+      "id": "demo-pos-09",
+      "name": "Quinn Rivera",
+      "org": "Sunrise Sip Studio",
+      "role": "Owner",
+      "signals": {
+        "activity_days": "55",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-21T07:00:00+00:00",
+      "contacts": {
+        "linkedin": "https://linkedin.com/in/taylor-ng-maple"
+      },
+      "id": "demo-pos-10",
+      "name": "Taylor Ng",
+      "org": "Maple Steam Coffee",
+      "role": "Owner",
+      "signals": {
+        "activity_days": "9",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-11-23T06:00:00+00:00",
+      "contacts": {
+        "dm": "@velvetcrema"
+      },
+      "id": "demo-pos-11",
+      "name": "Reese Parker",
+      "org": "Velvet Crema",
+      "role": "Founder",
+      "signals": {
+        "activity_days": "3",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    },
+    {
+      "collected_at": "2026-09-24T12:00:00+00:00",
+      "contacts": {
+        "email": "blake@perchandpour.coffee"
+      },
+      "id": "demo-pos-12",
+      "name": "Blake Harmon",
+      "org": "Perch & Pour",
+      "role": "CEO",
+      "signals": {
+        "activity_days": "60",
+        "revenue_ready": "yes",
+        "segment": "independent coffee shops"
+      },
+      "source": "demo_fixture"
+    }
+  ],
+  "preview": "Hi Jordan Pike,\n\nAt Willow Street Coffee, ready to adopt for revenue caught my eye. Would you be open to seeing how we might help you ship faster?",
+  "situation": {
+    "channels": [
+      "email"
+    ],
+    "constraint": "bootstrap / no paid enrichment in demo",
+    "goal": "first_revenue: land first paying coffee shop customers",
+    "product": "POS and inventory for indie cafes",
+    "segment": "independent coffee shops",
+    "stage": "pre-revenue"
+  },
+  "template_name": "first_revenue"
+}

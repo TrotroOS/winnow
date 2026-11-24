@@ -1,14 +1,18 @@
-# Deploy static site/ to Vercel on push to main.
+# Deploy Node web app to Vercel on push to main.
 # Add repo secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
 # (create project once: vercel link, or import TrotroOS/winnow in Vercel dashboard)
 
-name: Deploy static site to Vercel
+name: Deploy web app to Vercel
 
 on:
   push:
     branches: [main]
     paths:
-      - "site/**"
+      - "api/**"
+      - "web/**"
+      - "public/**"
+      - "server.mjs"
+      - "package.json"
       - "vercel.json"
       - ".github/workflows/vercel-static.yml"
 

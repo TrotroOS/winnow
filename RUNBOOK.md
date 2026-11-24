@@ -294,24 +294,25 @@ make test
 
 ---
 
-## Vercel (static site only)
+## Vercel (Node web app)
 
-Vercel cannot run the scheduler or live sends. Deploy is **static** (`framework: null` in `vercel.json`) so the repo is not treated as a Python serverless app. The build step is `npm run build`, which runs `scripts/vercel-build.mjs`; when `python3` and the package are available it regenerates `site/index.html` from the mock demo, otherwise it uses the committed `site/index.html`. Dry-run and sends stay on your host or Docker.
+Vercel cannot run the scheduler or live sends. Deploy is a **Node.js Express app** (`api/index.mjs`); runtime is Node only (no Python serverless). `npm run build` runs `scripts/vercel-build.mjs`, which refreshes `public/demo-snapshot.json` from the mock demo when `python3` and the package are available; otherwise it uses the committed snapshot. The landing page renders POSSIBLE/NOISE tables, preview, and invariant checks from that JSON. Dry-run and sends stay on your host or Docker.
 
 ```bash
-npm i -g vercel    # or: npx vercel
-cd /path/to/winnow
-vercel link
-vercel deploy --prod
+npm install
+npm run build
+npm run dev    # local http://127.0.0.1:3000
+npx vercel@latest link
+npx vercel@latest deploy --prod
 ```
 
-No environment variables are required for this static deployment.
+In the Vercel dashboard, use Framework Preset **Other** (custom Node app). No environment variables are required for the demo deployment.
 
-Optional — publish the latest local `logs/report_*.html` before deploy:
+Optional — publish the latest local `logs/report_*.html` (legacy static mirror under `site/`):
 
 ```bash
 ./scripts/publish_report_to_site.sh
-vercel deploy --prod
+npx vercel@latest deploy --prod
 ```
 
 Reports are operator artifacts under `site/reports/` (gitignored); the landing page does not display candidate scores or ranks.
