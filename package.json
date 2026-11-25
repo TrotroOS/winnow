@@ -12,11 +12,9 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "legacy:express": "node server.mjs",
-    "prebuild:vercel-static": "node scripts/vercel-build.mjs"
+    "export:demo-snapshot": "node scripts/vercel-build.mjs"
   },
   "dependencies": {
-    "express": "^4.21.2",
     "next": "14.2.18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

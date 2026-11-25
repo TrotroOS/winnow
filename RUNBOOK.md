@@ -294,27 +294,24 @@ make test
 
 ---
 
-## Vercel (Next.js demo UI)
+## Go live (inspection UI)
 
-Vercel hosts only the **Next.js 14** inspection UI (`npm run build` / `next build`). It does not run the Python scheduler or live outreach. No env vars are required for the demo.
+Static **Next.js 14** app (`app/` + framework-free `lib/`). Build reads `fixtures/demo/*.json` at compile time — no API keys, no server. Routes: `/`, `/possible`, `/noise`, `/batch`, `/invariants`, `/audit`.
 
 ```bash
-git pull
-npm install
-npm run dev          # local preview http://127.0.0.1:3000
-npx vercel@latest link    # once, in repo root
+npm install && npm run build && npm test
+npx vercel@latest link    # once: project name winnow, framework Next.js
 npx vercel@latest deploy --prod
 ```
 
-In the Vercel dashboard, **Framework Preset: Next.js** (or import `TrotroOS/winnow` and redeploy). Turn off **Deployment Protection → Vercel Authentication** if you want a public URL without login.
+`vercel.json` sets `outputDirectory: out` (`next.config.mjs` uses `output: "export"`). After link, CI on `main` can deploy with `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 
-**Cursor hosted app:** republish **winnow-demo** from this Project’s Publish settings after pushing so https://winnow-demo.apps.grok.bot serves the Next app.
+In the Vercel dashboard, use **Framework Preset: Next.js**. Disable **Deployment Protection → Vercel Authentication** for a public URL.
 
-Optional — publish the latest local `logs/report_*.html` (legacy static mirror under `site/`):
+**Cursor hosted app:** republish **winnow-demo** from Publish settings after pushing so the hosted app serves this build.
 
-```bash
-./scripts/publish_report_to_site.sh
-npx vercel@latest deploy --prod
-```
+Local preview: `npm run dev` → http://127.0.0.1:3000
 
-Reports are operator artifacts under `site/reports/` (gitignored); the landing page does not display candidate scores or ranks.
+Vercel cannot run the Python scheduler or live sends; those stay on host or Docker.
+
+Optional JSON mirror: `npm run export:demo-snapshot` (needs `python3` + editable install). Operator HTML reports: `./scripts/publish_report_to_site.sh` (legacy `site/` only).
