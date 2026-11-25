@@ -294,19 +294,21 @@ make test
 
 ---
 
-## Vercel (Node web app)
+## Vercel (Next.js demo UI)
 
-Vercel cannot run the scheduler or live sends. Deploy is a **Node.js Express app** (`api/index.mjs`); runtime is Node only (no Python serverless). `npm run build` runs `scripts/vercel-build.mjs`, which refreshes `public/demo-snapshot.json` from the mock demo when `python3` and the package are available; otherwise it uses the committed snapshot. The landing page renders POSSIBLE/NOISE tables, preview, and invariant checks from that JSON. Dry-run and sends stay on your host or Docker.
+Vercel hosts only the **Next.js 14** inspection UI (`npm run build` / `next build`). It does not run the Python scheduler or live outreach. No env vars are required for the demo.
 
 ```bash
+git pull
 npm install
-npm run build
-npm run dev    # local http://127.0.0.1:3000
-npx vercel@latest link
+npm run dev          # local preview http://127.0.0.1:3000
+npx vercel@latest link    # once, in repo root
 npx vercel@latest deploy --prod
 ```
 
-In the Vercel dashboard, use Framework Preset **Other** (custom Node app). No environment variables are required for the demo deployment.
+In the Vercel dashboard, **Framework Preset: Next.js** (or import `TrotroOS/winnow` and redeploy). Turn off **Deployment Protection → Vercel Authentication** if you want a public URL without login.
+
+**Cursor hosted app:** republish **winnow-demo** from this Project’s Publish settings after pushing so https://winnow-demo.apps.grok.bot serves the Next app.
 
 Optional — publish the latest local `logs/report_*.html` (legacy static mirror under `site/`):
 
