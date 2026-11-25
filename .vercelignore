@@ -1,0 +1,12 @@
+# Legacy static site + Python tree — Next.js must own the deployment
+site/**
+src/winnow/**
+logs/**
+tests/**
+legacy/**
+scripts/**
+.github/**
+docker/**
+*.py
+pyproject.toml
+uv.lock

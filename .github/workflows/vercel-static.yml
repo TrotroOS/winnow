@@ -1,19 +1,21 @@
-# Deploy Node web app to Vercel on push to main.
-# Add repo secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
-# (create project once: vercel link, or import TrotroOS/winnow in Vercel dashboard)
+# Deploy static Next.js inspection UI to Vercel on push to main.
+# Secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
 
-name: Deploy web app to Vercel
+name: Deploy inspection UI to Vercel
 
 on:
   push:
     branches: [main]
     paths:
-      - "api/**"
-      - "web/**"
+      - "app/**"
+      - "lib/**"
+      - "fixtures/**"
       - "public/**"
-      - "server.mjs"
       - "package.json"
+      - "package-lock.json"
+      - "next.config.mjs"
       - "vercel.json"
+      - "tsconfig.json"
       - ".github/workflows/vercel-static.yml"
 
 jobs:

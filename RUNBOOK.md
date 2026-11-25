@@ -294,25 +294,24 @@ make test
 
 ---
 
-## Vercel (Node web app)
+## Go live (inspection UI)
 
-Vercel cannot run the scheduler or live sends. Deploy is a **Node.js Express app** (`api/index.mjs`); runtime is Node only (no Python serverless). `npm run build` runs `scripts/vercel-build.mjs`, which refreshes `public/demo-snapshot.json` from the mock demo when `python3` and the package are available; otherwise it uses the committed snapshot. The landing page renders POSSIBLE/NOISE tables, preview, and invariant checks from that JSON. Dry-run and sends stay on your host or Docker.
+Static **Next.js 14** app (`app/` + framework-free `lib/`). Build reads `fixtures/demo/*.json` at compile time — no API keys, no server. Routes: `/`, `/possible`, `/noise`, `/batch`, `/invariants`, `/audit`.
 
 ```bash
-npm install
-npm run build
-npm run dev    # local http://127.0.0.1:3000
-npx vercel@latest link
+npm install && npm run build && npm test
+npx vercel@latest link    # once: project name winnow, framework Next.js
 npx vercel@latest deploy --prod
 ```
 
-In the Vercel dashboard, use Framework Preset **Other** (custom Node app). No environment variables are required for the demo deployment.
+`vercel.json` sets `outputDirectory: out` (`next.config.mjs` uses `output: "export"`). After link, CI on `main` can deploy with `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 
-Optional — publish the latest local `logs/report_*.html` (legacy static mirror under `site/`):
+In the Vercel dashboard, use **Framework Preset: Next.js**. Disable **Deployment Protection → Vercel Authentication** for a public URL.
 
-```bash
-./scripts/publish_report_to_site.sh
-npx vercel@latest deploy --prod
-```
+**Cursor hosted app:** republish **winnow-demo** from Publish settings after pushing so the hosted app serves this build.
 
-Reports are operator artifacts under `site/reports/` (gitignored); the landing page does not display candidate scores or ranks.
+Local preview: `npm run dev` → http://127.0.0.1:3000
+
+Vercel cannot run the Python scheduler or live sends; those stay on host or Docker.
+
+Optional JSON mirror: `npm run export:demo-snapshot` (needs `python3` + editable install). Operator HTML reports: `./scripts/publish_report_to_site.sh` (legacy `site/` only).
