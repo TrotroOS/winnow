@@ -304,7 +304,7 @@ npx vercel@latest link    # once: project name winnow, framework Next.js
 npx vercel@latest deploy --prod
 ```
 
-`vercel.json` sets `outputDirectory: out` (`next.config.mjs` uses `output: "export"`). After link, CI on `main` can deploy with `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+`vercel.json` uses the **Next.js** preset (`npm run build` → `.next`). Cursor **winnow-demo** publish needs this standard build (not `output: "export"`). Optional Vercel CI on `main` with `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 
 In the Vercel dashboard, use **Framework Preset: Next.js**. Disable **Deployment Protection → Vercel Authentication** for a public URL.
 
