@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { NavLinks } from "@/components/NavLinks";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,27 +8,26 @@ export const metadata: Metadata = {
   description: "Binary POSSIBLE / NOISE outreach demo",
 };
 
-const links = [
-  { href: "/", label: "Home" },
-  { href: "/possible", label: "POSSIBLE" },
-  { href: "/noise", label: "NOISE" },
-  { href: "/batch", label: "Batch" },
-  { href: "/invariants", label: "Invariants" },
-  { href: "/audit", label: "Audit" },
-];
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <nav>
-          {links.map((l) => (
-            <Link key={l.href} href={l.href}>
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-        {children}
+        <div className="app-shell">
+          <header className="site-header">
+            <div className="site-header__inner">
+              <Link href="/" className="brand">
+                <span className="brand__mark" aria-hidden />
+                <span>Winnow</span>
+                <span className="brand__tag">mock demo</span>
+              </Link>
+              <NavLinks />
+            </div>
+          </header>
+          <div className="page-content">{children}</div>
+          <footer className="site-footer muted">
+            Inspection demo · binary POSSIBLE / NOISE only · no scores or ranks
+          </footer>
+        </div>
       </body>
     </html>
   );
